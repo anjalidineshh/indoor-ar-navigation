@@ -36,7 +36,9 @@ function App() {
             <span className={`nav-link ${page === 'home' ? 'active' : ''}`} onClick={goToHome}>Home</span>
             <span className={`nav-link ${(page === 'navigate' || page === 'map') ? 'active' : ''}`} onClick={goToMap}>Navigation</span>
             <span className={`nav-link ${page === 'about' ? 'active' : ''}`} onClick={goToAbout}>About</span>
+          </div>
 
+          <div className="nav-actions">
             <button className="btn btn-danger nav-simulate-btn" onClick={() => alert("Simulation Triggered!")}>
               Simulate Alert
             </button>
