@@ -1,30 +1,16 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
-
-:root {
-    --bg-main: #0B0F19;
-    /* dark, rich navy/black base */
-    --bg-surface: #121A2F;
-    --bg-surface-hover: #1E293B;
-    --primary: #3B82F6;
-    /* bright blue */
-    --primary-glow: rgba(59, 130, 246, 0.4);
-    --secondary: #10B981;
-    /* emerald green */
-    --danger: #EF4444;
-    /* red for alerts */
+﻿:root {
+    --bg-main: #0f172a;
+    --bg-surface: #1e293b;
+    --bg-surface-hover: #334155;
+    --primary: #3b82f6;
+    --primary-glow: rgba(59, 130, 246, 0.5);
+    --secondary: #10b981;
+    --danger: #ef4444;
     --danger-glow: rgba(239, 68, 68, 0.5);
-
-    /* Coffee Palette Additions */
-    --coffee-deep: #561C24;
-    --coffee-ruby: #6D2932;
-    --coffee-latte: #C7B7A3;
-    --coffee-cream: #E8D8C4;
-
-    --text-main: #E8D8C4;
-    /* using cream for main text instead of stark white */
-    --text-muted: #C7B7A3;
-    /* using latte for muted text */
-    --border: rgba(255, 255, 255, 0.08);
+    --warning: #f59e0b;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --border: #334155;
 
     --font-heading: 'Space Grotesk', sans-serif;
     --font-body: 'Outfit', sans-serif;
@@ -46,8 +32,6 @@ body {
     line-height: 1.6;
     overflow-x: hidden;
     min-height: 100vh;
-    /* Prevent text from being too small on mobile */
-    -webkit-text-size-adjust: 100%;
 }
 
 h1,
@@ -66,9 +50,6 @@ button {
     cursor: pointer;
     border: none;
     outline: none;
-    /* Make buttons easier to tap on mobile */
-    min-height: 44px;
-    touch-action: manipulation;
 }
 
 /* Layout */
@@ -108,9 +89,6 @@ button {
     font-weight: 600;
     transition: all 0.2s var(--ease-out);
     text-decoration: none;
-    /* Touch friendly */
-    min-height: 48px;
-    touch-action: manipulation;
 }
 
 .btn-primary {
@@ -150,21 +128,23 @@ button {
 }
 
 .card {
-    background: transparent;
-    border: none;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
     border-radius: 1rem;
     padding: 1.5rem;
-    transition: transform 0.2s var(--ease-out);
+    transition: transform 0.2s var(--ease-out), border-color 0.2s;
 }
 
 .card:hover {
     transform: translateY(-4px);
+    border-color: var(--secondary);
+    box-shadow: 0 10px 30px -10px rgba(16, 185, 129, 0.2);
 }
 
 .glass-panel {
-    background: rgba(11, 15, 25, 0.8);
-    backdrop-filter: blur(16px);
-    border-bottom: 1px solid var(--border);
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 /* Animations */
@@ -203,10 +183,7 @@ button {
     left: 0;
     width: 100%;
     z-index: 1000;
-    padding: 1.2rem 0;
-    background: transparent;
-    border-bottom: none;
-    transition: all 0.3s ease;
+    padding: 1rem 0;
 }
 
 .nav-content {
@@ -217,17 +194,11 @@ button {
 
 .nav-logo {
     font-family: var(--font-heading);
-    font-weight: bold;
-    font-size: 1.5rem;
+    font-weight: 700;
+    font-size: 1.25rem;
     display: flex;
     align-items: center;
-    gap: 8px;
-    color: var(--text-main);
-    flex-shrink: 0;
-    /* Prevents squishing */
-}
-
-.nav-icon {
+    gap: 0.75rem;
     color: var(--text-main);
 }
 
@@ -252,19 +223,6 @@ button {
     transform: translateY(-2px);
 }
 
-.nav-simulate-btn {
-    background-color: var(--danger);
-    color: white;
-    padding: 0.6rem 1.5rem;
-    border-radius: 99px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    margin-left: 1rem;
-    margin-bottom: 0;
-    box-shadow: none;
-    animation: none;
-}
-
 /* Hero Section */
 .hero {
     min-height: 100vh;
@@ -285,24 +243,14 @@ button {
 }
 
 .hero-subtitle {
-    font-size: 1.15rem;
+    font-size: 1.25rem;
     color: var(--text-muted);
     margin-bottom: 2.5rem;
-    font-weight: 300;
 }
 
 .hero-actions {
     display: flex;
     gap: 1rem;
-}
-
-.hero-map-illustration {
-    flex: 1;
-    max-width: 500px;
-    margin-left: auto;
-    display: flex;
-    justify-content: center;
-    align-items: center;
 }
 
 /* Grid Layouts */
@@ -319,6 +267,7 @@ button {
     grid-template-columns: 350px 1fr;
     gap: 2rem;
     height: calc(100vh - 80px);
+    /* Account for navbar */
     margin-top: 80px;
 }
 
@@ -412,47 +361,25 @@ button {
     padding: 0.75rem;
     border-radius: 0.5rem;
     font-family: var(--font-body);
-    /* Mobile friendly */
-    font-size: 16px;
-    /* Prevents zoom on iOS */
-    min-height: 48px;
 }
 
-/* ===================== */
-/* MOBILE RESPONSIVE     */
-/* ===================== */
-
+/* Responsive */
 @media (max-width: 768px) {
-
-    /* Container padding */
-    .container {
-        padding: 0 1rem;
+    .nav-layout {
+        grid-template-columns: 1fr;
+        height: auto;
     }
 
-    /* ---- NAVBAR ---- */
-    .navbar {
-        padding: 0.6rem 0;
-        background: rgba(11, 15, 25, 0.95);
-        backdrop-filter: blur(10px);
+    .hero-title {
+        font-size: 2.5rem;
     }
 
-    .nav-logo {
-        font-size: 1.15rem;
+    .nav-links {
+        display: none;
+        /* Mobile menu todo if time permits, for now hidden on small screens? No, better functionality needed */
     }
 
-    .nav-icon {
-        width: 20px;
-        height: 20px;
-    }
-
-    /* Make simulate button fit on mobile */
-    .nav-simulate-btn {
-        padding: 0.4rem 1rem;
-        font-size: 0.8rem;
-        margin-left: auto;
-    }
-
-    /* Hide top nav links, show bottom bar instead */
+    /* Simple mobile nav override */
     .nav-links {
         display: flex;
         position: fixed;
@@ -460,129 +387,10 @@ button {
         left: 0;
         width: 100%;
         background: var(--bg-surface);
-        padding: 0.75rem 0.5rem;
+        padding: 1rem;
         justify-content: space-around;
-        align-items: center;
         gap: 0;
         border-top: 1px solid var(--border);
-        z-index: 1000;
-    }
-
-    .nav-link {
-        font-size: 0.75rem;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.25rem;
-        padding: 0.25rem 0.5rem;
-        min-width: 60px;
-        text-align: center;
-    }
-
-    /* ---- HERO ---- */
-    .hero {
-        padding-top: 5rem;
-        padding-bottom: 6rem;
-        /* Space for bottom nav */
-        min-height: 100svh;
-        align-items: flex-start;
-    }
-
-    .hero-content {
-        max-width: 100%;
-    }
-
-    .hero-title {
-        font-size: 2rem;
-        line-height: 1.2;
-        margin-bottom: 1rem;
-    }
-
-    .hero-subtitle {
-        font-size: 1rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .hero-actions {
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-
-    .hero-actions .btn {
-        width: 100%;
-        justify-content: center;
-    }
-
-    /* ---- CARDS GRID ---- */
-    .grid-3 {
-        grid-template-columns: 1fr;
-        gap: 1rem;
-        margin-top: 2rem;
-    }
-
-    .card {
-        padding: 1.25rem;
-    }
-
-    /* ---- NAV/MAP LAYOUT ---- */
-    .nav-layout {
-        grid-template-columns: 1fr;
-        height: auto;
-        margin-top: 70px;
-        padding-bottom: 80px;
-        /* Space for bottom nav */
-        gap: 1rem;
-    }
-
-    .sidebar {
-        height: auto;
-        border-radius: 0.75rem;
-        padding: 1rem;
-        gap: 1rem;
-    }
-
-    .map-container {
-        height: 350px;
-        border-radius: 0.75rem;
-    }
-
-    /* ---- EMERGENCY PAGE ---- */
-    .emergency-layout {
-        margin-top: 80px;
-        padding: 1rem;
-        padding-bottom: 100px;
-        /* Space for bottom nav */
-    }
-
-    .emergency-banner {
-        padding: 1.5rem 1rem;
-        border-radius: 1rem;
-    }
-
-    /* ---- BUTTONS ---- */
-    .btn {
-        padding: 0.875rem 1.25rem;
-        font-size: 1rem;
-    }
-
-    /* ---- OVERLAY BADGE ---- */
-    .overlay-badge {
-        font-size: 0.75rem;
-        padding: 0.4rem 0.75rem;
     }
 }
 
-/* Extra small phones (iPhone SE etc.) */
-@media (max-width: 375px) {
-    .hero-title {
-        font-size: 1.75rem;
-    }
-
-    .hero-subtitle {
-        font-size: 0.9rem;
-    }
-
-    .card {
-        padding: 1rem;
-    }
-}
