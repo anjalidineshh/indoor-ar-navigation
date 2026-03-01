@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import HomePage from './pages/HomePage';
-import ScanPage from './pages/ScanPage';
 import NavigatePage from './pages/NavigatePage';
 import MapPage from './pages/MapPage';
 import AboutPage from './pages/AboutPage';
@@ -12,13 +11,8 @@ function App() {
   const [currentLocation, setCurrentLocation] = useState(null);
   const [destination, setDestination] = useState(null);
 
-  const handleQRScan = (location) => {
-    setCurrentLocation(location);
-    setPage('navigate');
-  };
-
   const goToHome = () => setPage('home');
-  const goToScan = () => setPage('scan');
+  const goToNavigation = () => setPage('navigate');
   const goToNavigate = () => setPage('navigate');
   const goToMap = () => setPage('map');
   const goToAbout = () => setPage('about');
@@ -31,21 +25,19 @@ function App() {
           <div className="nav-logo">SafeNav</div>
           <div className="nav-links">
             <span className={`nav-link ${page === 'home' ? 'active' : ''}`} onClick={goToHome}>Home</span>
-            <span className={`nav-link ${(page === 'scan' || page === 'navigate' || page === 'map') ? 'active' : ''}`} onClick={goToScan}>Navigation</span>
+            <span className={`nav-link ${(page === 'navigate' || page === 'map') ? 'active' : ''}`} onClick={goToMap}>Navigation</span>
             <span className={`nav-link ${page === 'about' ? 'active' : ''}`} onClick={goToAbout}>About</span>
           </div>
         </div>
       </header>
 
       {page === 'home' && (
-        <HomePage onScan={goToScan} onMap={goToMap} onNavigate={goToNavigate} onAbout={goToAbout} onHome={goToHome} />
+        <HomePage onScan={goToNavigation} onMap={goToMap} onNavigate={goToNavigate} onAbout={goToAbout} onHome={goToHome} />
       )}
-      {page === 'scan' && (
-        <ScanPage onLocalize={handleQRScan} onBack={goToHome} />
-      )}
-      {page === 'navigate' && currentLocation && (
-        <NavigatePage 
-          currentLocation={currentLocation} 
+      {page === 'navigate' && (
+        <NavigatePage
+          currentLocation={currentLocation}
+          setCurrentLocation={setCurrentLocation}
           destination={destination}
           setDestination={setDestination}
           onBack={goToHome}
@@ -53,12 +45,10 @@ function App() {
         />
       )}
       {page === 'map' && (
-        <MapPage 
-          currentLocation={currentLocation}
-          destination={destination}
-          setDestination={setDestination}
+        <MapPage
           onBack={goToHome}
-          onNavigate={() => currentLocation && goToNavigate()}
+          onNavigate={() => goToNavigation()}
+          hasLocation={!!currentLocation}
         />
       )}
       {page === 'about' && <AboutPage onBack={goToHome} />}

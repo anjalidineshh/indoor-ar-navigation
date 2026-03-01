@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './ARVisualization.css';
 
-function ARVisualization({ currentLocation, destination }) {
+function ARVisualization({ currentLocation, destination, route }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [cameraActive, setCameraActive] = useState(false);
@@ -11,7 +11,7 @@ function ARVisualization({ currentLocation, destination }) {
     const startCamera = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { 
+          video: {
             facingMode: 'environment',
             width: { ideal: 1280 },
             height: { ideal: 720 }
@@ -76,7 +76,7 @@ function ARVisualization({ currentLocation, destination }) {
         // Draw compass directions rotated by current heading
         ctx.save();
         ctx.translate(centerX, centerY);
-        ctx.rotate(-heading * (Math.PI/180));
+        ctx.rotate(-heading * (Math.PI / 180));
         ctx.fillStyle = '#00ff00';
         ctx.font = 'bold 16px Arial';
         ctx.textAlign = 'center';
@@ -91,61 +91,91 @@ function ARVisualization({ currentLocation, destination }) {
         // compute bearing from current location to destination
         const dx = destination.x - currentLocation.x;
         const dy = destination.y - currentLocation.y;
-        let bearing = Math.atan2(dy, dx) * (180/Math.PI); // degrees from east
+        let bearing = Math.atan2(dy, dx) * (180 / Math.PI); // degrees from east
         bearing = (bearing + 360) % 360; // normalize
         // convert to compass north-based heading
         bearing = (90 - bearing + 360) % 360;
         // subtract device heading to get relative angle
         const relative = ((bearing - heading) + 360) % 360;
-        const angle = relative * (Math.PI / 180);
-        const arrowLength = 100;
-        const arrowX = centerX + Math.cos(angle) * arrowLength;
-        const arrowY = centerY + Math.sin(angle) * arrowLength;
+        // Make relative angle 0 point straight ahead, etc.
+        const MathPI = Math.PI;
+        const angle = relative * (MathPI / 180) - (MathPI / 2);
 
-        ctx.strokeStyle = '#00ff00';
-        ctx.lineWidth = 4;
+        // draw fat arrow on the "floor" pointing in relative angle
+        ctx.save();
+        ctx.translate(centerX, height - 120); // bottom center
+
+        // draw tracking circle on the floor
+        ctx.scale(1, 0.3); // perspective squash
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.4)';
+        ctx.lineWidth = 10;
         ctx.beginPath();
-        ctx.moveTo(centerX, centerY);
-        ctx.lineTo(arrowX, arrowY);
+        ctx.arc(0, 0, 150, 0, MathPI * 2);
         ctx.stroke();
 
-        // Draw arrowhead
-        const headlen = 25;
-        const angle1 = angle + Math.PI / 6;
-        const angle2 = angle - Math.PI / 6;
+        ctx.restore();
+
+        // Arrow drawing
+        ctx.save();
+        ctx.translate(centerX, height - 120);
+        ctx.rotate(angle);
+        ctx.scale(1, 0.35); // perspective for arrow
+
+        // Animated glowing 3D arrow
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.8)';
+        ctx.shadowColor = 'rgba(16, 185, 129, 1)';
+        ctx.shadowBlur = 20;
+
+        let bounce = (Math.sin(Date.now() / 200) * 10);
+        ctx.translate(0, bounce); // hover effect
+
         ctx.beginPath();
-        ctx.moveTo(arrowX, arrowY);
-        ctx.lineTo(arrowX - headlen * Math.cos(angle1), arrowY - headlen * Math.sin(angle1));
-        ctx.lineTo(arrowX - headlen * Math.cos(angle2), arrowY - headlen * Math.sin(angle2));
+        ctx.moveTo(-20, 0);      // Base left
+        ctx.lineTo(20, 0);       // Base right
+        ctx.lineTo(20, -180);    // Stem right
+        ctx.lineTo(40, -180);    // Head right
+        ctx.lineTo(0, -250);     // Tip
+        ctx.lineTo(-40, -180);   // Head left
+        ctx.lineTo(-20, -180);   // Stem left
         ctx.closePath();
-        ctx.fillStyle = '#00ff00';
         ctx.fill();
+        ctx.restore();
 
-        // Draw destination info box
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(centerX - 120, height - 80, 240, 70);
+        // Draw destination info box (moved up slightly)
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(centerX - 130, height - 100, 260, 80, 12);
+        ctx.fill();
+        ctx.stroke();
 
-        ctx.fillStyle = '#00ff00';
-        ctx.font = 'bold 16px Arial';
+        ctx.fillStyle = '#10b981';
+        ctx.font = 'bold 18px "Space Grotesk"';
         ctx.textAlign = 'center';
-        ctx.fillText('→ ' + destination.name, centerX, height - 50);
+        ctx.fillText('📍 ' + destination.name, centerX, height - 60);
 
-        ctx.fillStyle = '#fff';
-        ctx.font = '12px Arial';
-        ctx.fillText('Follow the arrow', centerX, height - 25);
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '14px "Outfit"';
+        ctx.fillText('Follow the augmented track', centerX, height - 35);
 
         // Draw distance indicator on sides
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(10, centerY - 30, 80, 60);
+        if (route && route.distance) {
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+          ctx.beginPath();
+          ctx.roundRect(20, height / 2 - 40, 100, 80, 12);
+          ctx.fill();
+          ctx.stroke();
 
-        ctx.fillStyle = '#00ff00';
-        ctx.font = 'bold 20px Arial';
-        ctx.textAlign = 'left';
-        ctx.fillText('100m', 20, centerY + 10);
+          ctx.fillStyle = '#10b981';
+          ctx.font = 'bold 24px "Space Grotesk"';
+          ctx.textAlign = 'center';
+          ctx.fillText(route.distance.toFixed(0) + 'm', 70, height / 2);
 
-        ctx.fillStyle = '#fff';
-        ctx.font = '12px Arial';
-        ctx.fillText('to destination', 20, centerY + 25);
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = '12px "Outfit"';
+          ctx.fillText('Distance', 70, height / 2 + 20);
+        }
       } else if (currentLocation) {
         // Show location info when no destination is selected
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
@@ -206,15 +236,14 @@ function ARVisualization({ currentLocation, destination }) {
 
   return (
     <div className="ar-visualization">
-      {cameraActive && (
-        <video 
-          ref={videoRef}
-          className="ar-video"
-          autoPlay
-          playsInline
-          muted
-        />
-      )}
+      <video
+        ref={videoRef}
+        className="ar-video"
+        autoPlay
+        playsInline
+        muted
+        style={{ display: cameraActive ? 'block' : 'none' }}
+      />
       <canvas ref={canvasRef} className="ar-canvas"></canvas>
       <div className="ar-status">
         {cameraActive ? '📷 Camera Active' : '🎮 AR Mode'}

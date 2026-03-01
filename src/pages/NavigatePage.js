@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import ARVisualization from '../components/ARVisualization';
+import FloorPlan from '../components/FloorPlan';
 import { getRoute, getEvacuationRoute } from '../logic/pathfinding';
 import { getLocationNames } from '../data/indoorMap';
 // global.css supplies layout styling
 
 
-function NavigatePage({ currentLocation, destination, setDestination, onBack, onMapView }) {
+function NavigatePage({ currentLocation, setCurrentLocation, destination, setDestination, onBack, onMapView }) {
   const [locations, setLocations] = useState([]);
   const [route, setRoute] = useState(null);
   const [showDestinations, setShowDestinations] = useState(false);
@@ -43,14 +44,53 @@ function NavigatePage({ currentLocation, destination, setDestination, onBack, on
   return (
     <div className="container nav-layout">
       <div className="sidebar">
-        <button className="btn btn-secondary" onClick={onBack}>← Home</button>
-        <button className="btn btn-secondary" onClick={onMapView}>🗺️ Map</button>
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary" onClick={onBack} style={{ flexGrow: 1 }}>
+            🏠 Home
+          </button>
+          <button className="btn btn-secondary" onClick={onMapView} style={{ flexGrow: 1 }}>
+            🗺️ Map
+          </button>
+        </div>
         <div style={{ marginTop: '1rem' }}>
-          <div>
-            <strong>Current:</strong> {currentLocation?.name || 'Unknown'}
-          </div>
+          {!currentLocation ? (
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
+              <label style={{ color: '#fff', fontSize: '14px', display: 'block', marginBottom: '0.5rem' }}>📷 Current Location (Simulated AR Marker):</label>
+              <select
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  borderRadius: '6px',
+                  background: '#1e293b',
+                  color: '#fff',
+                  border: '1px solid #475569',
+                  fontSize: '14px'
+                }}
+                value=""
+                onChange={(e) => {
+                  const loc = locations.find(l => l.id === e.target.value);
+                  if (loc) setCurrentLocation(loc);
+                }}
+              >
+                <option value="" disabled>-- Point camera at a room marker --</option>
+                {locations.map(loc => (
+                  <option key={loc.id} value={loc.id}>{loc.name}</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div><strong>Current:</strong> {currentLocation.name}</div>
+              <button
+                className="btn btn-secondary"
+                style={{ padding: '4px 8px', fontSize: '12px' }}
+                onClick={() => { setCurrentLocation(null); setRoute(null); }}>
+                Rescan
+              </button>
+            </div>
+          )}
           {destination && (
-            <div>
+            <div style={{ marginTop: '0.5rem' }}>
               <strong>Destination:</strong> {destination.name}
             </div>
           )}
@@ -58,10 +98,10 @@ function NavigatePage({ currentLocation, destination, setDestination, onBack, on
 
         <div style={{ marginTop: '1rem' }}>
           <label style={{ color: '#fff', fontSize: '14px', display: 'block', marginBottom: '0.5rem' }}>Choose Destination:</label>
-          <select 
-            style={{ 
-              width: '100%', 
-              padding: '10px', 
+          <select
+            style={{
+              width: '100%',
+              padding: '10px',
               borderRadius: '6px',
               background: '#1e293b',
               color: '#fff',
@@ -100,10 +140,27 @@ function NavigatePage({ currentLocation, destination, setDestination, onBack, on
         </button>
       </div>
 
-      <div className="map-container">
-        <ARVisualization currentLocation={currentLocation} destination={destination} />
+      <div className="map-container" style={{ position: 'relative' }}>
+        <ARVisualization currentLocation={currentLocation} destination={destination} route={route} />
+        {currentLocation && destination && route && (
+          <div style={{
+            position: 'absolute',
+            bottom: '20px',
+            right: '20px',
+            width: '240px',
+            height: '180px',
+            border: '2px solid rgba(255,255,255,0.2)',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            background: '#0f172a',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.5)',
+            pointerEvents: 'none'
+          }}>
+            <FloorPlan currentLocation={currentLocation} destination={destination} route={route} />
+          </div>
+        )}
       </div>
-    </div>
+    </div >
   );
 }
 
