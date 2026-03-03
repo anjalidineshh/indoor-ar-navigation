@@ -39,6 +39,12 @@
     box-sizing: border-box;
 }
 
+img,
+video {
+    max-width: 100%;
+    height: auto;
+}
+
 body {
     font-family: var(--font-body);
     background-color: var(--bg-main);
@@ -59,6 +65,37 @@ h6 {
     font-family: var(--font-heading);
     letter-spacing: -0.02em;
     color: var(--text-main);
+    line-height: 1.2;
+}
+
+h1 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+}
+
+h2 {
+    font-size: 2rem;
+    margin-bottom: 0.8rem;
+}
+
+h3 {
+    font-size: 1.75rem;
+    margin-bottom: 0.6rem;
+}
+
+h4 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+h5 {
+    font-size: 1.25rem;
+    margin-bottom: 0.4rem;
+}
+
+h6 {
+    font-size: 1rem;
+    margin-bottom: 0.3rem;
 }
 
 button {
@@ -79,10 +116,9 @@ button {
 }
 
 .container {
+    width: 90%;
     max-width: 1200px;
     margin: 0 auto;
-    padding: 0 1.5rem;
-    width: 100%;
 }
 
 /* Typography */
@@ -326,11 +362,17 @@ button {
 
 /* Navigation Page specific */
 .nav-layout {
-    display: grid;
-    grid-template-columns: 350px 1fr;
-    gap: 2rem;
-    height: calc(100vh - 80px);
+    display: flex;
+    flex-direction: column-reverse;
+    /* Force camera on top, controls on bottom */
+    height: calc(100vh - 100px);
     margin-top: 80px;
+    gap: 1rem;
+    max-width: 600px;
+    /* Make it look like a mobile app even on PC */
+    margin-left: auto;
+    margin-right: auto;
+    padding-bottom: 20px;
 }
 
 .sidebar {
@@ -339,8 +381,9 @@ button {
     padding: 1.5rem;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
-    height: 100%;
+    gap: 1rem;
+    max-height: 40vh;
+    /* Keep controls compact */
     overflow-y: auto;
 }
 
@@ -353,6 +396,10 @@ button {
     align-items: center;
     justify-content: center;
     border: 1px solid var(--border);
+    flex-grow: 1;
+    /* Instruct flexbox space fill without pushing hard */
+    min-height: 250px;
+    /* Smallest bounding constraint without overlap */
 }
 
 .map-placeholder {
@@ -373,6 +420,14 @@ button {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+}
+
+.minimap-overlay {
+    bottom: 20px;
+    right: 20px;
+    width: 280px;
+    height: 200px;
+    z-index: 10;
 }
 
 /* Emergency Page */
@@ -401,6 +456,20 @@ button {
 
     100% {
         box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.8;
+        transform: scale(1.02);
     }
 }
 
@@ -435,9 +504,30 @@ button {
 
 @media (max-width: 768px) {
 
-    /* Container padding */
+    h1 {
+        font-size: 2rem;
+    }
+
+    h2 {
+        font-size: 1.5rem;
+    }
+
+    h3 {
+        font-size: 1.25rem;
+    }
+
+    h4 {
+        font-size: 1.1rem;
+    }
+
+    h5 {
+        font-size: 1rem;
+    }
+
+    /* Container fluid fill */
     .container {
-        padding: 0 1rem;
+        width: 95%;
+        padding: 0;
     }
 
     /* ---- NAVBAR ---- */
@@ -480,14 +570,15 @@ button {
     }
 
     .nav-link {
-        font-size: 0.75rem;
+        font-size: 0.9rem;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 0.25rem;
-        padding: 0.25rem 0.5rem;
-        min-width: 60px;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        min-width: 75px;
         text-align: center;
+        min-height: 48px;
     }
 
     /* ---- HERO ---- */
@@ -497,10 +588,17 @@ button {
         /* Space for bottom nav */
         min-height: 100svh;
         align-items: flex-start;
+        overflow-x: hidden;
     }
 
     .hero-content {
         max-width: 100%;
+    }
+
+    .hero-map-illustration {
+        max-width: 100%;
+        margin-left: 0;
+        margin-top: 2rem;
     }
 
     .hero-title {
@@ -535,26 +633,11 @@ button {
         padding: 1.25rem;
     }
 
-    /* ---- NAV/MAP LAYOUT ---- */
-    .nav-layout {
-        grid-template-columns: 1fr;
-        height: auto;
-        margin-top: 70px;
-        padding-bottom: 80px;
-        /* Space for bottom nav */
-        gap: 1rem;
-    }
-
-    .sidebar {
-        height: auto;
-        border-radius: 0.75rem;
-        padding: 1rem;
-        gap: 1rem;
-    }
-
-    .map-container {
-        height: 350px;
-        border-radius: 0.75rem;
+    .minimap-overlay {
+        bottom: 10px;
+        right: 10px;
+        width: 140px;
+        height: 110px;
     }
 
     /* ---- EMERGENCY PAGE ---- */
@@ -572,8 +655,9 @@ button {
 
     /* ---- BUTTONS ---- */
     .btn {
-        padding: 0.875rem 1.25rem;
-        font-size: 1rem;
+        padding: 1rem 1.5rem;
+        font-size: 1.1rem;
+        min-height: 52px;
     }
 
     /* ---- OVERLAY BADGE ---- */

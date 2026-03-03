@@ -8,8 +8,8 @@ function ScanPage({ onLocalize, onBack }) {
       <div style={{ alignSelf: 'flex-start', marginTop: '60px', marginBottom: '20px' }}>
         <button className="btn btn-secondary" onClick={onBack}>← Home</button>
       </div>
-      <h1 className="page-title">Scan QR Code</h1>
-      <p className="page-subtitle">Position the QR code inside the glowing frame below for automatic detection.</p>
+      <h1 className="page-title">Scan Room Sign</h1>
+      <p className="page-subtitle">Position the room name sign inside the glowing frame below for automatic detection.</p>
       <QRLocalization onLocalize={onLocalize} />
     </div>
   );

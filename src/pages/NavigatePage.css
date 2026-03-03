@@ -7,7 +7,8 @@
 }
 
 .nav-sidebar {
-  width: 300px;
+  width: 100%;
+  max-width: 300px;
   background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
   border-left: 2px solid #00ff00;
   display: flex;
@@ -23,7 +24,8 @@
   border-bottom: 1px solid #00ff0033;
 }
 
-.back-btn, .map-btn {
+.back-btn,
+.map-btn {
   flex: 1;
   padding: 8px 12px;
   background: rgba(0, 255, 0, 0.1);
@@ -36,7 +38,8 @@
   transition: all 0.2s;
 }
 
-.back-btn:hover, .map-btn:hover {
+.back-btn:hover,
+.map-btn:hover {
   background: rgba(0, 255, 0, 0.2);
   box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
 }

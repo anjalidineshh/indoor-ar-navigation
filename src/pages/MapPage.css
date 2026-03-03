@@ -42,22 +42,40 @@
   flex: 1;
   gap: 0;
   overflow: hidden;
+  flex-direction: row;
+}
+
+@media (max-width: 768px) {
+  .map-container {
+    flex-direction: column-reverse;
+  }
 }
 
 .map-view {
   flex: 1;
   background: #000;
   overflow: auto;
+  min-height: 50vh;
 }
 
 .map-panel {
   width: 320px;
+  max-width: 100%;
   background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
   border-left: 2px solid #00ff00;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   box-shadow: -5px 0 20px rgba(0, 255, 0, 0.1);
+}
+
+@media (max-width: 768px) {
+  .map-panel {
+    width: 100%;
+    border-left: none;
+    border-top: 2px solid #00ff00;
+    max-height: 40vh;
+  }
 }
 
 .selector-section {

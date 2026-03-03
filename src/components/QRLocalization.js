@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import jsQR from 'jsqr';
+import Tesseract from 'tesseract.js';
+import { getLocationNames } from '../data/indoorMap';
 import './QRLocalization.css';
 
 function QRLocalization({ onLocalize }) {
@@ -7,102 +8,133 @@ function QRLocalization({ onLocalize }) {
   const canvasRef = useRef(null);
   const [scanning, setScanning] = useState(true);
   const [error, setError] = useState(null);
+  const [statusText, setStatusText] = useState('Initializing Scanner...');
+  const [detectedText, setDetectedText] = useState('');
 
   useEffect(() => {
+    let isMounted = true;
+    let scanInterval;
+
     const startCamera = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' }
+          video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
         });
-        
-        if (videoRef.current) {
+
+        if (videoRef.current && isMounted) {
           videoRef.current.srcObject = stream;
+          setStatusText('Scanning for Location Text...');
         }
 
-        scanQRCode();
+        // Start scanning loop every 1.5 seconds to avoid overwhelming the browser
+        scanInterval = setInterval(scanTextMarker, 1500);
       } catch (err) {
-        setError('Unable to access camera: ' + err.message);
-        setScanning(false);
+        if (isMounted) {
+          setError('Unable to access camera: ' + err.message);
+          setScanning(false);
+        }
       }
     };
 
     startCamera();
 
     return () => {
+      isMounted = false;
+      if (scanInterval) clearInterval(scanInterval);
       if (videoRef.current && videoRef.current.srcObject) {
         videoRef.current.srcObject.getTracks().forEach(track => track.stop());
       }
     };
-  }, []);
+  }, [scanning]);
 
-  const handleDefaultLocation = () => {
-    // Default to Left Stairs as entry point
-    const leftStairs = { id: 'left_stairs', name: 'Left Stairs', x: 20, y: 100 };
-    onLocalize(leftStairs);
-    setScanning(false);
+  const handleDefaultLocation = (locId) => {
+    const locs = getLocationNames();
+    const loc = locs.find(l => l.id === locId);
+    if (loc) {
+      onLocalize(loc);
+      setScanning(false);
+    }
   };
 
-  const scanQRCode = () => {
+  const scanTextMarker = async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
 
-    if (!video || !canvas) return;
+    if (!video || !canvas || video.readyState !== video.HAVE_ENOUGH_DATA || !scanning) return;
 
     const ctx = canvas.getContext('2d');
-    const scan = () => {
-      if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
+    try {
+      const { data: { text } } = await Tesseract.recognize(canvas, 'eng', {
+        logger: () => { } // suppress logs
+      });
 
-        if (code) {
-          try {
-            const location = JSON.parse(code.data);
-            if (location.id && location.x !== undefined && location.y !== undefined) {
-              onLocalize(location);
-              setScanning(false);
-              return;
-            }
-          } catch (e) {
-            // Invalid QR data format
-          }
+      const detectedRaw = text.toLowerCase().trim();
+
+      // Update ui to show what it is picking up
+      if (detectedRaw.length > 2) {
+        setDetectedText(detectedRaw.substring(0, 40));
+      }
+
+      const locations = getLocationNames();
+
+      for (const loc of locations) {
+        // Create an array of keywords to match from the location name
+        const nameKeywords = loc.name.toLowerCase().split(' ').filter(w => w.length > 2);
+
+        // Let's do a simple fuzzy match: if multiple keywords of a room match the text, it's a hit.
+        let matchCount = 0;
+        for (const kw of nameKeywords) {
+          if (detectedRaw.includes(kw)) matchCount++;
+        }
+
+        // if we match at least 60% of the keywords or an exact match of the ID
+        const matchThreshold = Math.max(1, Math.floor(nameKeywords.length * 0.6));
+        if (matchCount >= matchThreshold || detectedRaw.includes(loc.id)) {
+          console.log(`Matched location: ${loc.name}`);
+          onLocalize(loc);
+          setScanning(false);
+          return;
         }
       }
-
-      if (scanning) {
-        requestAnimationFrame(scan);
-      }
-    };
-
-    scan();
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   return (
     <div className="qr-container">
-
-      <video 
-        ref={videoRef} 
+      <video
+        ref={videoRef}
         className="qr-video"
         autoPlay
         playsInline
       />
       <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-
       <div className="qr-overlay">
         <div className="qr-frame"></div>
       </div>
 
       {error && <div className="qr-error">{error}</div>}
-      {scanning && <div className="qr-scanning">Scanning...</div>}
-      
+      {scanning && <div className="qr-scanning">{statusText}</div>}
+
       <div style={{ padding: '20px', textAlign: 'center', background: 'rgba(0,0,0,0.8)' }}>
-        <button 
+        <p style={{ marginBottom: '10px', fontSize: '12px', color: '#94a3b8' }}>Point camera at a room name sign (e.g. "Thermal Lab", "Lecture A")</p>
+
+        <div style={{ padding: '8px', marginBottom: '15px', background: '#1e293b', borderRadius: '4px', border: '1px solid #334155' }}>
+          <p style={{ margin: 0, fontSize: '10px', color: '#10b981', textTransform: 'uppercase' }}>Scanner Output Log:</p>
+          <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#e2e8f0', minHeight: '18px', wordBreak: 'break-all' }}>
+            {detectedText ? `"${detectedText}"` : "Waiting for text..."}
+          </p>
+        </div>
+
+        <button
           className="btn btn-secondary"
-          onClick={handleDefaultLocation}
+          onClick={() => handleDefaultLocation('left_stairs')}
         >
           Use Left Stairs (Default)
         </button>
