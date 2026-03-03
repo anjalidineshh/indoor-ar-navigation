@@ -35,8 +35,10 @@ function MapPage({ onBack, onNavigate, hasLocation, currentLocation, destination
     return name;
   };
 
-  const [startVal, _setStartVal] = useState(currentLocation ? standardizeName(currentLocation.name) : '');
-  const [destVal, _setDestVal] = useState(destination ? standardizeName(destination.name) : '');
+  // eslint-disable-next-line no-unused-vars
+  const [startVal, setStartVal] = useState(currentLocation ? standardizeName(currentLocation.name) : '');
+  // eslint-disable-next-line no-unused-vars
+  const [destVal, setDestVal] = useState(destination ? standardizeName(destination.name) : '');
   const [routePath, setRoutePath] = useState('');
 
   useEffect(() => {

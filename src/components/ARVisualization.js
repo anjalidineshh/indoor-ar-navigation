@@ -27,6 +27,7 @@ function ARVisualization({
 
     let stream = null;
 
+    const videoEl = videoRef.current; // capture ref value for cleanup
     const startCamera = async () => {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
@@ -36,8 +37,8 @@ function ARVisualization({
             height: { ideal: 720 },
           },
         });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+        if (videoEl) {
+          videoEl.srcObject = stream;
           setCameraActive(true);
           setCameraError(false);
         }
@@ -52,7 +53,7 @@ function ARVisualization({
 
     return () => {
       if (stream) stream.getTracks().forEach(t => t.stop());
-      if (videoRef.current) videoRef.current.srcObject = null;
+      if (videoEl) videoEl.srcObject = null;
       setCameraActive(false);
     };
   }, [active]);

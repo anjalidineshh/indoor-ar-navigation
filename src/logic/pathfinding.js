@@ -40,8 +40,7 @@ export function getEvacuationRoute(currentLocationId) {
     return { path: [], distance: Infinity };
   }
 
-  // Find closest exit
-  let _closestExit = exits[0];
+  // Find closest exit by iterating all exits and tracking shortest route
   let shortestDistance = Infinity;
   let shortestRoute = { path: [], distance: Infinity };
 
@@ -49,7 +48,6 @@ export function getEvacuationRoute(currentLocationId) {
     const route = dijkstra(graph, currentLocationId, exit.id);
     if (route.distance < shortestDistance) {
       shortestDistance = route.distance;
-      _closestExit = exit;
       shortestRoute = route;
     }
   }
