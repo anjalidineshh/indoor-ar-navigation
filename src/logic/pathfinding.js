@@ -32,7 +32,7 @@ export function getRoute(startLocationId, endLocationId, useAstar = true) {
 export function getEvacuationRoute(currentLocationId) {
   const graph = getGraph();
   const allNodes = graph.getAllNodes();
-  
+
   // Find all exits
   const exits = allNodes.filter(node => node.isExit);
 
@@ -41,7 +41,7 @@ export function getEvacuationRoute(currentLocationId) {
   }
 
   // Find closest exit
-  let closestExit = exits[0];
+  let _closestExit = exits[0];
   let shortestDistance = Infinity;
   let shortestRoute = { path: [], distance: Infinity };
 
@@ -49,7 +49,7 @@ export function getEvacuationRoute(currentLocationId) {
     const route = dijkstra(graph, currentLocationId, exit.id);
     if (route.distance < shortestDistance) {
       shortestDistance = route.distance;
-      closestExit = exit;
+      _closestExit = exit;
       shortestRoute = route;
     }
   }
@@ -63,7 +63,7 @@ export function getEvacuationRoute(currentLocationId) {
 export function getAlternativeRoutes(startLocationId, endLocationId, count = 3) {
   const graph = getGraph();
   const routes = [];
-  
+
   // For now, return main route. In production, implement k-shortest paths algorithm
   const mainRoute = dijkstra(graph, startLocationId, endLocationId);
   routes.push(mainRoute);

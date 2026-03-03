@@ -33,7 +33,7 @@ function NavigatePage({
   // When emergency triggers from global, jump to AR mode
   useEffect(() => {
     if (globalEmergency && phase !== PHASE.AR) setPhase(PHASE.AR);
-  }, [globalEmergency]);
+  }, [globalEmergency, phase]);
 
   // Advance from scanning → destination once location is found
   useEffect(() => {

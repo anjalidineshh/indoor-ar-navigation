@@ -35,8 +35,8 @@ function MapPage({ onBack, onNavigate, hasLocation, currentLocation, destination
     return name;
   };
 
-  const [startVal, setStartVal] = useState(currentLocation ? standardizeName(currentLocation.name) : '');
-  const [destVal, setDestVal] = useState(destination ? standardizeName(destination.name) : '');
+  const [startVal, _setStartVal] = useState(currentLocation ? standardizeName(currentLocation.name) : '');
+  const [destVal, _setDestVal] = useState(destination ? standardizeName(destination.name) : '');
   const [routePath, setRoutePath] = useState('');
 
   useEffect(() => {

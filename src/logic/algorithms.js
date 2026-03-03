@@ -1,4 +1,4 @@
-import Graph from './graph';
+// algorithms.js — no Graph import needed here
 
 /**
  * Priority queue implementation for A* and Dijkstra algorithms
@@ -151,4 +151,5 @@ export function aStar(graph, startId, endId, heuristic) {
   return { path: [], distance: Infinity };
 }
 
-export default { dijkstra, aStar };
+const algorithms = { dijkstra, aStar };
+export default algorithms;
