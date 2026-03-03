@@ -32,6 +32,9 @@ function MapPage({ onBack, onNavigate, hasLocation, currentLocation, destination
     if (name === 'Lecture Hall D') return 'Lecture Hall (D)';
     if (name === 'Faculty Room') return 'Faculty Room (Right)';
     if (name === 'Stairs (Right Side)') return 'Stairs (East)';
+    if (name === 'Boys Toilet (Center)') return 'Boys Toilet (Center)';
+    if (name === 'Boys Toilet (North)') return 'Boys Toilet (North)';
+    if (name === 'Girls Toilet') return 'Girls Toilet';
     return name;
   };
 
