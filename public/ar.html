@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>AR Navigation — SafeNav</title>
+
+    <!-- A-Frame -->
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <!-- AR.js for A-Frame (marker tracking) -->
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+        }
+
+        /* Make A-Frame fill screen */
+        a-scene {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* ── HUD — top bar ── */
+        #hud-top {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 999;
+            padding: 14px 16px 10px;
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.88) 0%, transparent 100%);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        #back-btn {
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        #dest-badge {
+            background: rgba(14, 165, 233, 0.15);
+            border: 1px solid rgba(56, 189, 248, 0.5);
+            border-radius: 20px;
+            padding: 7px 16px;
+            color: #38bdf8;
+            font-size: 13px;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
+            text-align: center;
+        }
+
+        #dest-badge.emergency {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.5);
+            color: #fca5a5;
+        }
+
+        #step-badge {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            padding: 7px 14px;
+            color: #94a3b8;
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+
+        /* ── Direction card — center ── */
+        #direction-card {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            z-index: 998;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 10, 30, 0.88);
+            border: 1.5px solid rgba(56, 189, 248, 0.5);
+            border-radius: 20px;
+            padding: 20px 28px;
+            text-align: center;
+            min-width: 200px;
+            max-width: 280px;
+            box-shadow: 0 0 40px rgba(56, 189, 248, 0.2);
+            display: none;
+            /* shown when marker found */
+        }
+
+        #direction-card.emergency {
+            border-color: rgba(239, 68, 68, 0.6);
+            box-shadow: 0 0 40px rgba(239, 68, 68, 0.3);
+        }
+
+        #direction-emoji {
+            font-size: 52px;
+            margin-bottom: 8px;
+        }
+
+        #direction-text {
+            color: #e0f2fe;
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            margin-bottom: 6px;
+        }
+
+        #direction-card.emergency #direction-text {
+            color: #fca5a5;
+        }
+
+        #next-room {
+            color: #64748b;
+            font-size: 12px;
+            margin-bottom: 2px;
+        }
+
+        #next-name {
+            color: #38bdf8;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        #direction-card.emergency #next-name {
+            color: #ef4444;
+        }
+
+        /* ── Bottom bar ── */
+        #hud-bottom {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 999;
+            padding: 12px 16px 28px;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.92) 60%, transparent 100%);
+        }
+
+        #distance-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            padding: 12px 18px;
+            margin-bottom: 10px;
+        }
+
+        #dist-label {
+            color: #94a3b8;
+            font-size: 12px;
+        }
+
+        #dist-value {
+            color: #10b981;
+            font-size: 24px;
+            font-weight: 800;
+        }
+
+        #marker-hint {
+            text-align: center;
+            padding: 10px;
+            background: rgba(56, 189, 248, 0.08);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            border-radius: 12px;
+        }
+
+        #marker-hint p {
+            color: #64748b;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+
+        #marker-hint strong {
+            color: #38bdf8;
+            font-size: 13px;
+        }
+
+        #marker-hint.emergency strong {
+            color: #f87171;
+        }
+
+        /* Marker found indicator */
+        #found-indicator {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 999;
+            background: rgba(16, 185, 129, 0.9);
+            color: #fff;
+            padding: 6px 18px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            display: none;
+        }
+
+        /* ── Printable marker button ── */
+        #show-marker-btn {
+            position: fixed;
+            bottom: 130px;
+            right: 16px;
+            z-index: 999;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            border-radius: 12px;
+            padding: 10px 14px;
+            font-size: 12px;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        /* ── Marker modal ── */
+        #marker-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 2000;
+            background: rgba(0, 0, 0, 0.95);
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        #marker-modal.open {
+            display: flex;
+        }
+
+        #marker-modal h2 {
+            color: #fff;
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+
+        #marker-modal p {
+            color: #94a3b8;
+            font-size: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        #marker-modal img {
+            width: 220px;
+            height: 220px;
+            border: 4px solid #fff;
+            border-radius: 8px;
+        }
+
+        #close-modal-btn {
+            margin-top: 20px;
+            background: #38bdf8;
+            color: #000;
+            border: none;
+            border-radius: 10px;
+            padding: 10px 28px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        /* Pulse animation */
+        @keyframes pulse-ring {
+            0% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(2);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ── A-Frame AR Scene ── -->
+    <a-scene vr-mode-ui="enabled: false" renderer="logarithmicDepthBuffer: true; colorManagement: true;" embedded
+        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;">
+
+        <!-- Hiro Marker — the printable reference image -->
+        <a-marker preset="hiro" id="hiro-marker" emitevents="true" cursor="fuse: false">
+
+            <!-- ── Floor ring (ground plane indicator) ── -->
+            <a-ring id="floor-ring" position="0 0.01 0" rotation="-90 0 0" radius-inner="0.18" radius-outer="0.22"
+                color="#38bdf8" opacity="0.6"
+                animation="property: rotation; to: -90 360 0; loop: true; dur: 4000; easing: linear"></a-ring>
+
+            <!-- ── Navigation Arrow group (rotated by angle param) ── -->
+            <a-entity id="arrow-group" position="0 0 0">
+
+                <!-- Arrow shaft -->
+                <a-cylinder id="arrow-shaft" radius="0.03" height="0.45" position="0 0.225 0" color="#0ea5e9"
+                    emissive="#0ea5e9" emissive-intensity="0.4" shadow></a-cylinder>
+
+                <!-- Arrow head (cone) -->
+                <a-cone id="arrow-head" radius-bottom="0.14" radius-top="0" height="0.28" position="0 0.59 0"
+                    color="#38bdf8" emissive="#38bdf8" emissive-intensity="0.5" shadow></a-cone>
+
+                <!-- Arrow outer glow sphere (pulsing) -->
+                <a-sphere radius="0.12" position="0 0 0" color="#38bdf8" opacity="0.15"
+                    animation="property: scale; from: 1 1 1; to: 2 2 2; dir: alternate; loop: true; dur: 900; easing: easeInOutSine"></a-sphere>
+
+                <!-- Hover animation on the whole arrow -->
+                <a-entity
+                    animation="property: position; from: 0 0 0; to: 0 0.12 0; dir: alternate; loop: true; dur: 1200; easing: easeInOutSine">
+                    <!-- Destination text label floating above arrow -->
+                    <a-text id="dest-3d-text" value="LOADING..." align="center" position="0 1.1 0" color="#e0f2fe"
+                        width="2.5" wrap-count="20"></a-text>
+                </a-entity>
+
+            </a-entity>
+
+            <!-- ── Ambient light for the marker ── -->
+            <a-light type="point" intensity="0.8" color="#38bdf8" position="0 0.5 0"></a-light>
+
+        </a-marker>
+
+        <!-- Camera -->
+        <a-entity camera></a-entity>
+    </a-scene>
+
+    <!-- ── HUD Top ── -->
+    <div id="hud-top">
+        <button id="back-btn" onclick="goBack()">← Back</button>
+        <div id="dest-badge">📍 Loading...</div>
+        <div id="step-badge">Step 1</div>
+    </div>
+
+    <!-- Direction card (visible when marker found) -->
+    <div id="direction-card">
+        <div id="direction-emoji">↑</div>
+        <div id="direction-text">STRAIGHT AHEAD</div>
+        <div id="next-room">Head toward</div>
+        <div id="next-name">—</div>
+    </div>
+
+    <!-- Marker found indicator -->
+    <div id="found-indicator">✓ Marker Detected</div>
+
+    <!-- Show marker button -->
+    <button id="show-marker-btn" onclick="document.getElementById('marker-modal').classList.add('open')">
+        🖨️ Show<br>Marker
+    </button>
+
+    <!-- ── HUD Bottom ── -->
+    <div id="hud-bottom">
+        <div id="distance-row">
+            <div id="dist-label">Total distance</div>
+            <div id="dist-value">— m</div>
+        </div>
+        <div id="marker-hint">
+            <p>Point camera at the <strong>Hiro marker</strong> to see AR navigation</p>
+            <strong id="hint-action">🎯 3D arrow will appear above the marker</strong>
+        </div>
+    </div>
+
+    <!-- ── Printable Marker Modal ── -->
+    <div id="marker-modal">
+        <h2>🖨️ Hiro Marker</h2>
+        <p>Print this or show it on another screen.<br>Point your camera at it to activate AR.</p>
+        <img src="https://raw.githubusercontent.com/stemkoski/AR.js-examples/master/markers/hiro.png"
+            alt="Hiro AR Marker" />
+        <br>
+        <small style="color:#64748b; font-size:11px; margin-top:8px; display:block;">
+            Best size: 8–15 cm printed on white paper
+        </small>
+        <button id="close-modal-btn" onclick="document.getElementById('marker-modal').classList.remove('open')">
+            Close
+        </button>
+    </div>
+
+    <script>
+        // ── Read URL params from React app ──────────────────────────────────────────
+        const params = new URLSearchParams(window.location.search);
+        const dest = decodeURIComponent(params.get('dest') || 'Destination');
+        const nextRoom = decodeURIComponent(params.get('next') || dest);
+        const stepNum = params.get('step') || '1';
+        const stepTot = params.get('total') || '1';
+        const distance = params.get('dist') || '';
+        const angle = parseFloat(params.get('angle') || '0');   // compass-relative bearing (0=forward)
+        const emergency = params.get('emergency') === '1';
+        const returnUrl = params.get('return') || '/';
+
+        // ── Turn label from angle ────────────────────────────────────────────────────
+        function getTurnInfo(deg) {
+            const a = ((deg % 360) + 360) % 360;
+            if (a < 25 || a > 335) return { emoji: '↑', label: 'STRAIGHT AHEAD' };
+            if (a < 70) return { emoji: '↗', label: 'SLIGHT RIGHT' };
+            if (a < 130) return { emoji: '→', label: 'TURN RIGHT' };
+            if (a < 180) return { emoji: '↘', label: 'SHARP RIGHT' };
+            if (a < 210) return { emoji: '↩', label: 'U-TURN' };
+            if (a < 250) return { emoji: '↙', label: 'SHARP LEFT' };
+            if (a < 295) return { emoji: '←', label: 'TURN LEFT' };
+            return { emoji: '↖', label: 'SLIGHT LEFT' };
+        }
+
+        const turn = getTurnInfo(angle);
+
+        // ── Apply emergency colour scheme ────────────────────────────────────────────
+        function applyEmergency() {
+            if (!emergency) return;
+            document.getElementById('dest-badge').classList.add('emergency');
+            document.getElementById('direction-card').classList.add('emergency');
+            document.getElementById('marker-hint').classList.add('emergency');
+
+            // Change 3D arrow colours to red
+            ['arrow-shaft', 'arrow-head'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) { el.setAttribute('color', '#ef4444'); el.setAttribute('emissive', '#ef4444'); }
+            });
+            document.querySelector('a-light').setAttribute('color', '#ef4444');
+            document.querySelector('a-ring').setAttribute('color', '#ef4444');
+        }
+
+        // ── Populate HUD ─────────────────────────────────────────────────────────────
+        document.getElementById('dest-badge').textContent =
+            (emergency ? '🚨 EVACUATE → ' : '📍 ') + dest;
+        document.getElementById('step-badge').textContent =
+            `Step ${stepNum}/${stepTot}`;
+        document.getElementById('direction-emoji').textContent = turn.emoji;
+        document.getElementById('direction-text').textContent = turn.label;
+        document.getElementById('next-name').textContent = nextRoom;
+        document.getElementById('dist-value').textContent = distance ? distance + 'm' : '—';
+
+        if (emergency) {
+            document.getElementById('hint-action').textContent =
+                '🚨 Follow AR arrow to nearest exit';
+        }
+
+        // ── Apply arrow rotation (Y-axis = which direction to point) ────────────────
+        // Rotate in AR space so arrow points in the correct horizontal direction
+        document.getElementById('arrow-group').setAttribute('rotation', `0 ${angle} 0`);
+
+        // ── 3D floating text ─────────────────────────────────────────────────────────
+        document.getElementById('dest-3d-text').setAttribute('value',
+            (emergency ? '🚨 EXIT' : turn.emoji + ' ' + nextRoom)
+        );
+
+        // ── Marker detection events ───────────────────────────────────────────────────
+        const marker = document.getElementById('hiro-marker');
+        const dirCard = document.getElementById('direction-card');
+        const foundIndicator = document.getElementById('found-indicator');
+        const markerHint = document.getElementById('marker-hint');
+
+        marker.addEventListener('markerFound', () => {
+            dirCard.style.display = 'block';
+            foundIndicator.style.display = 'block';
+            markerHint.style.opacity = '0.4';
+            setTimeout(() => { foundIndicator.style.display = 'none'; }, 2500);
+        });
+
+        marker.addEventListener('markerLost', () => {
+            dirCard.style.display = 'none';
+            markerHint.style.opacity = '1';
+        });
+
+        // ── Apply emergency after DOM ready ──────────────────────────────────────────
+        // Wait for A-Frame scene to be ready
+        document.querySelector('a-scene').addEventListener('loaded', () => {
+            applyEmergency();
+        });
+
+        // ── Back navigation ───────────────────────────────────────────────────────────
+        function goBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = returnUrl;
+            }
+        }
+    </script>
+</body>
+
+</html>

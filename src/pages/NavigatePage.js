@@ -266,6 +266,37 @@ function NavigatePage({
     ? { name: 'EMERGENCY EXIT', id: path[path.length - 1], x: 0, y: 0 }
     : (nextWaypoint || destination);
 
+  // ── Open AR.js WebAR page ──────────────────────────────────────────────────
+  const openARjsView = () => {
+    const dest = destination || arrowTarget;
+    const next = nextWaypoint || destination;
+
+    // Calculate compass-relative bearing to next waypoint
+    // so the AR arrow points in roughly the right horizontal direction
+    let angleDeg = 0;
+    if (currentLocation && next) {
+      const dx = next.x - currentLocation.x;
+      const dy = next.y - currentLocation.y;
+      // Bearing: 0 = up (north on map), clockwise
+      let bearing = Math.atan2(dx, -dy) * (180 / Math.PI);
+      bearing = (bearing + 360) % 360;
+      angleDeg = Math.round(bearing);
+    }
+
+    const p = new URLSearchParams({
+      dest: encodeURIComponent(dest?.name || 'Destination'),
+      next: encodeURIComponent(next?.name || dest?.name || ''),
+      step: String(safeWpIdx),
+      total: String(totalSteps),
+      dist: route?.distance ? String(Math.round(route.distance)) : '',
+      angle: String(angleDeg),
+      emergency: isEmergency ? '1' : '0',
+      return: window.location.pathname,
+    });
+
+    window.open(`/ar.html?${p.toString()}`, '_blank');
+  };
+
   return (
     <div style={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden', background: '#000' }}>
       <ARVisualization
@@ -299,6 +330,20 @@ function NavigatePage({
         </button>
 
         <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {/* 3D WebAR button — opens ar.html with AR.js */}
+          <button
+            onClick={openARjsView}
+            style={{
+              background: 'linear-gradient(135deg, rgba(56,189,248,0.9), rgba(14,165,233,0.9))',
+              backdropFilter: 'blur(12px)',
+              color: '#fff', border: '1px solid rgba(56,189,248,0.5)',
+              borderRadius: '12px', padding: '8px 14px',
+              cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold',
+              boxShadow: '0 0 16px rgba(56,189,248,0.35)',
+            }}
+          >
+            🔮 3D AR
+          </button>
           {/* Open the existing 2D map page */}
           <button
             onClick={onMapView}
