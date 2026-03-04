@@ -1,78 +1,148 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import Tesseract from 'tesseract.js';
 import { getLocationNames, getGraph } from '../data/indoorMap';
+import {
+  initARThreeScene,
+  startARLoop,
+  destroyARThreeScene,
+} from './ARThreeScene';
 import './ARVisualization.css';
 
+/**
+ * ARVisualization
+ *
+ * AR overlay component. In 'ar' mode (default) it now uses a Three.js WebGL
+ * renderer (alpha:true) overlaid on the live camera feed — inspired by:
+ *   FireDragonGameStudio/ARIndoorNavigation-Threejs
+ *
+ * Key concepts adopted from the reference repo:
+ *  - THREE.WebGLRenderer with alpha:true overlaid on camera video
+ *  - THREE.Line (BufferGeometry + setFromPoints) for the navigation path
+ *  - Pool of waypoint sphere markers (show/hide as needed)
+ *  - Scene group rotated by compass heading (analog to marker-anchored scene)
+ *
+ * Retained from the existing implementation:
+ *  - getUserMedia camera stream
+ *  - DeviceOrientation compass heading
+ *  - Tesseract.js OCR localization scanning
+ *  - 2D canvas map (viewMode='2d')
+ *  - Scanning frame overlay in scanningOnly mode
+ */
 function ARVisualization({
   currentLocation,
   destination,
   route,
   onLocationFound,
   isEmergency,
-  active = false,       // Only starts camera when true
-  scanningOnly = false, // Skip AR overlays, just camera + scan frame
-  viewMode = 'ar',      // 'ar' | '2d'
+  active = false,
+  scanningOnly = false,
+  viewMode = 'ar',
 }) {
+  const containerRef = useRef(null);
   const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const animRef = useRef(null);
+  const canvasRef = useRef(null);     // 2D canvas (used only for 2D map + compass HUD)
+  const animRef = useRef(null);       // 2D canvas rAF
+  const threeInitRef = useRef(false); // guard for Three.js init
+
   const [cameraActive, setCameraActive] = useState(false);
-  const [cameraError, setCameraError] = useState(false);
+  const [cameraError, setCameraError] = useState(''); // empty = no error, string = error message
   const [heading, setHeading] = useState(0);
   const [detectedText, setDetectedText] = useState('');
 
-  // ─── Camera startup (only when active=true) ───────────────────────
+  // Stable refs so Three.js loop can read current values without re-init
+  const headingRef = useRef(0);
+  const routeRef = useRef(null);
+  const destinationRef = useRef(null);
+  const isEmergencyRef = useRef(false);
+
+  useEffect(() => { headingRef.current = heading; }, [heading]);
+  useEffect(() => { routeRef.current = route; }, [route]);
+  useEffect(() => { destinationRef.current = destination; }, [destination]);
+  useEffect(() => { isEmergencyRef.current = isEmergency; }, [isEmergency]);
+
+  // ─── Camera startup (progressive fallback for mobile) ────────────────────────
   useEffect(() => {
     if (!active) return;
 
     let stream = null;
+    const videoEl = videoRef.current;
 
-    const videoEl = videoRef.current; // capture ref value for cleanup
     const startCamera = async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: 'environment' }, // prefer back camera
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        });
-        if (videoEl) {
-          videoEl.srcObject = stream;
-          setCameraActive(true);
-          setCameraError(false);
+      // Progressive fallback strategy:
+      //  1. Back camera (ideal) with HD resolution
+      //  2. Back camera (exact) with no resolution constraints
+      //  3. Any camera (no constraints at all)
+      const attempts = [
+        { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+        { video: { facingMode: 'environment' } },
+        { video: true },
+      ];
+
+      let lastErr = null;
+      for (const constraints of attempts) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+          break; // success — stop trying
+        } catch (err) {
+          lastErr = err;
+          console.warn('Camera attempt failed:', err.name, err.message, 'tried:', JSON.stringify(constraints));
+          stream = null;
         }
-      } catch (err) {
-        console.warn('Camera unavailable:', err.message);
+      }
+
+      if (stream && videoEl) {
+        videoEl.srcObject = stream;
+        // Ensure playback starts (some mobile browsers need explicit play())
+        try { await videoEl.play(); } catch (e) { console.warn('video.play() failed:', e.message); }
+        setCameraActive(true);
+        setCameraError('');
+      } else {
+        const msg = lastErr
+          ? `${lastErr.name}: ${lastErr.message}`
+          : 'Camera unavailable';
+        console.error('All camera attempts failed:', msg);
         setCameraActive(false);
-        setCameraError(true);
+        setCameraError(msg);
       }
     };
+
+    // Check if getUserMedia is available at all
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setCameraError('getUserMedia not supported — use HTTPS and Chrome/Firefox');
+      return;
+    }
 
     startCamera();
 
     return () => {
       if (stream) stream.getTracks().forEach(t => t.stop());
-      if (videoEl) videoEl.srcObject = null;
+      if (videoEl) { videoEl.pause(); videoEl.srcObject = null; }
       setCameraActive(false);
     };
   }, [active]);
 
-  // ─── Device orientation / compass ─────────────────────────────────
+  // ─── Device orientation / compass ─────────────────────────────────────────
   useEffect(() => {
     if (!active) return;
     let fallback;
 
     const handleOrientation = (e) => {
       if (e.alpha !== null && typeof e.alpha === 'number') {
-        setHeading((360 - e.alpha + 360) % 360);
+        const h = (360 - e.alpha + 360) % 360;
+        setHeading(h);
+        headingRef.current = h;
         if (fallback) { clearInterval(fallback); fallback = null; }
       }
     };
     window.addEventListener('deviceorientation', handleOrientation, true);
 
-    // Fallback animation on desktop (no real compass)
-    fallback = setInterval(() => setHeading(h => (h + 0.5) % 360), 50);
+    fallback = setInterval(() => {
+      setHeading(h => {
+        const next = (h + 0.5) % 360;
+        headingRef.current = next;
+        return next;
+      });
+    }, 50);
 
     return () => {
       window.removeEventListener('deviceorientation', handleOrientation, true);
@@ -80,7 +150,39 @@ function ARVisualization({
     };
   }, [active]);
 
-  // ─── OCR scanning loop ─────────────────────────────────────────────
+  // ─── Three.js AR scene (active + ar mode + not scanningOnly) ──────────────
+  useEffect(() => {
+    if (!active || viewMode !== 'ar' || scanningOnly) {
+      // Tear down if previously running
+      if (threeInitRef.current) {
+        destroyARThreeScene();
+        threeInitRef.current = false;
+      }
+      return;
+    }
+
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Init Three.js scene (pattern from reference repo IndoorNav constructor)
+    initARThreeScene(container);
+    threeInitRef.current = true;
+
+    // Start render loop (pattern: indoorNav.start() / loop.start())
+    startARLoop(
+      () => headingRef.current,
+      () => routeRef.current,
+      () => destinationRef.current,
+      () => isEmergencyRef.current,
+    );
+
+    return () => {
+      destroyARThreeScene();
+      threeInitRef.current = false;
+    };
+  }, [active, viewMode, scanningOnly]);
+
+  // ─── OCR scanning loop ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!active || !cameraActive || currentLocation) return;
 
@@ -94,12 +196,46 @@ function ARVisualization({
       isScanning = true;
 
       try {
-        const tc = document.createElement('canvas');
-        tc.width = videoRef.current.videoWidth;
-        tc.height = videoRef.current.videoHeight;
-        tc.getContext('2d').drawImage(videoRef.current, 0, 0, tc.width, tc.height);
+        const video = videoRef.current;
+        const vw = video.videoWidth;
+        const vh = video.videoHeight;
 
-        const { data: { text } } = await Tesseract.recognize(tc, 'eng', { logger: () => { } });
+        const cropW = Math.floor(vw * 0.60);
+        const cropH = Math.floor(vh * 0.55);
+        const cropX = Math.floor((vw - cropW) / 2);
+        const cropY = Math.floor((vh - cropH) / 2);
+
+        const targetW = 600;
+        const targetH = Math.floor(cropH * (targetW / cropW));
+
+        const tc = document.createElement('canvas');
+        tc.width = targetW;
+        tc.height = targetH;
+        const tCtx = tc.getContext('2d');
+
+        tCtx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, targetW, targetH);
+
+        const imgData = tCtx.getImageData(0, 0, targetW, targetH);
+        const d = imgData.data;
+        const contrastFactor = 2.2;
+        const brightnessBump = 15;
+
+        for (let i = 0; i < d.length; i += 4) {
+          let gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+          gray = Math.min(255, gray + brightnessBump);
+          let contrast = ((gray - 128) * contrastFactor) + 128;
+          contrast = Math.max(0, Math.min(255, contrast));
+          d[i] = d[i + 1] = d[i + 2] = contrast;
+        }
+        tCtx.putImageData(imgData, 0, 0);
+
+        const { data: { text } } = await Tesseract.recognize(tc, 'eng', {
+          logger: () => { },
+          tessedit_pageseg_mode: '6',
+          tessedit_char_whitelist:
+            'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ()-.',
+        });
+
         const rawText = text.toLowerCase().trim();
         const rawTextClean = rawText.replace(/[^a-z0-9]/gi, '');
         const displaySafe = rawText.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').replace(/[^a-z0-9\s]/gi, '').trim();
@@ -126,23 +262,23 @@ function ARVisualization({
           if (score > highestScore) { highestScore = score; bestMatch = loc; }
         }
         if (bestMatch && highestScore >= 5 && onLocationFound) onLocationFound(bestMatch);
+
       } catch (e) {
         console.error(e);
       } finally {
         isScanning = false;
       }
-    }, 1500);
+    }, 700);
 
     return () => clearInterval(scanInterval);
   }, [active, cameraActive, currentLocation, onLocationFound]);
 
-  // ─── Canvas drawing loop ───────────────────────────────────────────
+  // ─── 2D canvas draw loop (map + compass HUD only) ─────────────────────────
   const drawLoop = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
-    // Match canvas size to its CSS display size
     if (canvas.width !== canvas.offsetWidth || canvas.height !== canvas.offsetHeight) {
       canvas.width = canvas.offsetWidth;
       canvas.height = canvas.offsetHeight;
@@ -152,11 +288,10 @@ function ARVisualization({
     ctx.clearRect(0, 0, W, H);
 
     if (viewMode === '2d') {
+      // Full 2D map view
       draw2DMap(ctx, W, H, currentLocation, destination, route, isEmergency);
-    } else if (!scanningOnly && currentLocation && destination) {
-      drawAROverlay(ctx, W, H, currentLocation, destination, route, heading, isEmergency);
     } else if (!scanningOnly && currentLocation && !destination) {
-      // Show "you are here" hint
+      // "You are here" hint (no destination selected yet)
       ctx.fillStyle = 'rgba(0,0,0,0.65)';
       roundRect(ctx, W / 2 - 150, H / 2 - 40, 300, 80, 12);
       ctx.fill();
@@ -169,8 +304,10 @@ function ARVisualization({
       ctx.fillText('Select a destination to navigate', W / 2, H / 2 + 18);
     }
 
-    // Compass HUD — bottom-right corner (away from all buttons)
-    if (viewMode === 'ar' && !scanningOnly) drawCompassHUD(ctx, W, H, heading, cameraActive);
+    // Compass HUD — shown in AR mode (Three.js handles the arrow; canvas handles compass)
+    if (viewMode === 'ar' && !scanningOnly) {
+      drawCompassHUD(ctx, W, H, heading, cameraActive);
+    }
 
     animRef.current = requestAnimationFrame(drawLoop);
   }, [currentLocation, destination, route, heading, isEmergency, viewMode, scanningOnly, cameraActive]);
@@ -180,9 +317,9 @@ function ARVisualization({
     return () => cancelAnimationFrame(animRef.current);
   }, [drawLoop]);
 
-  // ─── Render ────────────────────────────────────────────────────────
+  // ─── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="ar-visualization">
+    <div className="ar-visualization" ref={containerRef}>
       {/* Live camera feed */}
       <video
         ref={videoRef}
@@ -190,6 +327,9 @@ function ARVisualization({
         autoPlay
         playsInline
         muted
+        webkit-playsinline="true"
+        x-webkit-airplay="allow"
+        onCanPlay={(e) => { e.target.play().catch(() => { }); }}
         style={{ display: cameraActive ? 'block' : 'none' }}
       />
 
@@ -201,19 +341,43 @@ function ARVisualization({
         }} />
       )}
 
-      {/* Canvas AR overlay */}
+      {/* 2D canvas — used for 2D map mode and compass HUD overlay only */}
+      {/* In AR mode the Three.js canvas (inserted by ARThreeScene) handles the 3D rendering */}
       <canvas ref={canvasRef} className="ar-canvas" />
 
-      {/* Camera error message */}
+      {/* Camera error message — shows the actual error for debugging */}
       {cameraError && !cameraActive && (
         <div style={{
-          position: 'absolute', bottom: '40%', left: '50%',
-          transform: 'translateX(-50%)', zIndex: 10,
-          background: 'rgba(0,0,0,0.85)', borderRadius: '12px',
-          padding: '1rem 1.5rem', textAlign: 'center', color: '#f59e0b',
-          border: '1px solid rgba(245,158,11,0.3)', whiteSpace: 'nowrap',
+          position: 'absolute', top: '50%', left: '50%',
+          transform: 'translate(-50%, -50%)', zIndex: 10,
+          background: 'rgba(0,0,0,0.92)', borderRadius: '16px',
+          padding: '1.25rem 1.5rem', textAlign: 'center',
+          border: '1px solid rgba(245,158,11,0.4)',
+          maxWidth: '85vw',
         }}>
-          ⚠️ Camera unavailable — AR mode simulation
+          <div style={{ fontSize: '2rem', marginBottom: '8px' }}>📷</div>
+          <div style={{ color: '#f59e0b', fontWeight: 'bold', fontSize: '14px', marginBottom: '6px' }}>
+            Camera blocked
+          </div>
+          <div style={{ color: '#94a3b8', fontSize: '11px', marginBottom: '12px', wordBreak: 'break-word' }}>
+            {cameraError}
+          </div>
+          <div style={{ color: '#64748b', fontSize: '10px', lineHeight: 1.6 }}>
+            Make sure you:<br />
+            1. Opened <b style={{ color: '#38bdf8' }}>https://</b> (not http://)<br />
+            2. Tapped &quot;Allow&quot; for camera<br />
+            3. Accepted the SSL warning
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              marginTop: '12px', background: '#f59e0b', color: '#000',
+              border: 'none', borderRadius: '8px', padding: '8px 20px',
+              fontWeight: 'bold', cursor: 'pointer', fontSize: '13px',
+            }}
+          >
+            🔄 Retry
+          </button>
         </div>
       )}
 
@@ -244,134 +408,47 @@ function ARVisualization({
           </div>
         </div>
       )}
+
+      {/* AR mode info badge (shown when Three.js AR is active) */}
+      {viewMode === 'ar' && !scanningOnly && currentLocation && destination && (
+        <div style={{
+          position: 'absolute', top: '16px', left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(0,0,0,0.75)',
+          border: '1px solid rgba(56,189,248,0.4)',
+          borderRadius: '20px',
+          padding: '6px 16px',
+          color: '#38bdf8',
+          fontSize: '12px',
+          fontWeight: '600',
+          letterSpacing: '0.05em',
+          zIndex: 20,
+          pointerEvents: 'none',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+        }}>
+          <span style={{
+            width: 8, height: 8, borderRadius: '50%',
+            background: '#38bdf8',
+            boxShadow: '0 0 8px #38bdf8',
+            display: 'inline-block',
+          }} />
+          3D AR Navigation Active
+        </div>
+      )}
     </div>
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────
-// Helper: AR overlay drawing (3D arrow + compass + distance)
-// ──────────────────────────────────────────────────────────────────────
-function drawAROverlay(ctx, W, H, currentLocation, destination, route, heading, isEmergency) {
-  const cx = W / 2;
-  const isAlert = isEmergency;
-
-  const dx = destination.x - currentLocation.x;
-  const dy = destination.y - currentLocation.y;
-  let bearing = Math.atan2(dy, dx) * (180 / Math.PI);
-  bearing = (90 - bearing + 360) % 360;
-  const relative = ((bearing - heading) + 360) % 360;
-
-  render3DArrow(ctx, cx, H, relative * (Math.PI / 180), isAlert);
-
-  // Destination info box
-  ctx.fillStyle = isAlert ? 'rgba(69,10,10,0.85)' : 'rgba(0,0,0,0.82)';
-  ctx.strokeStyle = isAlert ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.1)';
-  ctx.lineWidth = 1;
-  roundRect(ctx, cx - 130, H - 105, 260, 82, 12);
-  ctx.fill(); ctx.stroke();
-
-  ctx.fillStyle = isAlert ? '#fca5a5' : '#10b981';
-  ctx.font = 'bold 17px "Space Grotesk", Arial';
-  ctx.textAlign = 'center';
-  ctx.fillText((isAlert ? '🚨 ' : '📍 ') + destination.name, cx, H - 66);
-  ctx.fillStyle = '#94a3b8';
-  ctx.font = '13px "Outfit", Arial';
-  ctx.fillText(isAlert ? 'EVACUATE IMMEDIATELY' : 'Follow the AR arrow', cx, H - 43);
-
-  // Distance badge
-  if (route?.distance) {
-    ctx.fillStyle = 'rgba(0,0,0,0.8)';
-    roundRect(ctx, 16, H / 2 - 44, 90, 88, 12);
-    ctx.fill();
-    ctx.fillStyle = '#10b981';
-    ctx.font = 'bold 22px "Space Grotesk", Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(route.distance.toFixed(0) + 'm', 61, H / 2 + 2);
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '12px Arial';
-    ctx.fillText('Distance', 61, H / 2 + 22);
-  }
-}
-
-function render3DArrow(ctx, cx, H, angle3D, isAlert) {
-  const cy = H - 165;
-  const scale = 1.2;
-  const w1 = 15 * scale, w2 = 40 * scale;
-  const l1 = -50 * scale, l2 = 20 * scale, l3 = 80 * scale;
-  const depth = 25 * scale;
-
-  const pts = [
-    { x: 0, z: l3 }, { x: -w2, z: l2 }, { x: -w1, z: l2 },
-    { x: -w1, z: l1 }, { x: w1, z: l1 }, { x: w1, z: l2 }, { x: w2, z: l2 },
-  ];
-
-  const t = Date.now() / 300;
-  const hoverY = Math.sin(t) * 12 - 20;
-  const pitch = Math.PI / 5;
-  const cosP = Math.cos(pitch), sinP = Math.sin(pitch);
-  const cosA = Math.cos(angle3D), sinA = Math.sin(angle3D);
-
-  const project = (x, y, z) => {
-    let rx = x * cosA + z * sinA;
-    let rz = -x * sinA + z * cosA;
-    let ry = y + hoverY;
-    rz += 50;
-    let px = rx;
-    let py = ry * cosP - rz * sinP;
-    let pz = ry * sinP + rz * cosP;
-    const fov = 400, dist = 350;
-    let s = fov / (dist + pz);
-    return { x: cx + px * s, y: cy + py * s };
-  };
-
-  const top = pts.map(p => project(p.x, -depth / 2, p.z));
-  const bot = pts.map(p => project(p.x, depth / 2, p.z));
-
-  const light = isAlert ? '#b91c1c' : '#38bdf8';
-  const mid = isAlert ? '#991b1b' : '#0ea5e9';
-  const dark = isAlert ? '#7f1d1d' : '#0284c7';
-  ctx.lineWidth = 1;
-
-  for (let i = 0; i < pts.length; i++) {
-    const next = (i + 1) % pts.length;
-    const dx = top[next].x - top[i].x, dy = top[next].y - top[i].y;
-    const dx2 = bot[i].x - top[i].x, dy2 = bot[i].y - top[i].y;
-    if (dx * dy2 - dy * dx2 > 0) {
-      ctx.beginPath();
-      ctx.moveTo(top[i].x, top[i].y);
-      ctx.lineTo(top[next].x, top[next].y);
-      ctx.lineTo(bot[next].x, bot[next].y);
-      ctx.lineTo(bot[i].x, bot[i].y);
-      ctx.closePath();
-      ctx.fillStyle = (i === 1 || i === 4) ? light : (i === 0 || i === 6) ? mid : dark;
-      ctx.fill();
-      ctx.strokeStyle = isAlert ? '#450a0a' : '#0c4a6e';
-      ctx.stroke();
-    }
-  }
-
-  ctx.beginPath();
-  ctx.moveTo(top[0].x, top[0].y);
-  for (let i = 1; i < top.length; i++) ctx.lineTo(top[i].x, top[i].y);
-  ctx.closePath();
-  ctx.shadowColor = isAlert ? 'rgba(239,68,68,1)' : 'rgba(56,189,248,1)';
-  ctx.shadowBlur = 25;
-  ctx.fillStyle = isAlert ? '#ef4444' : '#0ea5e9';
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-}
-
-// ──────────────────────────────────────────────────────────────────────
-// Helper: 2D top-down minimap
-// ──────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────────
+// Helper: 2D top-down minimap (unchanged from original)
+// ──────────────────────────────────────────────────────────────────────────────
 function draw2DMap(ctx, W, H, currentLocation, destination, route, isEmergency) {
   const graph = getGraph();
   const nodes = graph.getAllNodes();
 
-  // Compute bounding box of all nodes
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   for (const n of nodes) {
     if (n.x < minX) minX = n.x;
@@ -390,11 +467,9 @@ function draw2DMap(ctx, W, H, currentLocation, destination, route, isEmergency) 
     sy: padding + (y - minY) * scale,
   });
 
-  // Background
   ctx.fillStyle = 'rgba(11,15,25,0.95)';
   ctx.fillRect(0, 0, W, H);
 
-  // Draw all edges
   for (const node of nodes) {
     const neighbors = graph.getNeighbors(node.id);
     if (!neighbors || neighbors.length === 0) continue;
@@ -412,7 +487,6 @@ function draw2DMap(ctx, W, H, currentLocation, destination, route, isEmergency) 
     }
   }
 
-  // Draw route path highlighted
   if (route?.path && route.path.length > 1) {
     const pathColor = isEmergency ? '#ef4444' : '#3b82f6';
     ctx.strokeStyle = pathColor;
@@ -431,7 +505,6 @@ function draw2DMap(ctx, W, H, currentLocation, destination, route, isEmergency) 
     ctx.shadowBlur = 0;
   }
 
-  // Draw all nodes as dots
   for (const node of nodes) {
     const { sx, sy } = toScreen(node.x, node.y);
     const isExit = node.isExit;
@@ -441,14 +514,12 @@ function draw2DMap(ctx, W, H, currentLocation, destination, route, isEmergency) 
     ctx.arc(sx, sy, isExit ? 6 : 4, 0, Math.PI * 2);
     ctx.fill();
 
-    // Label
     ctx.fillStyle = 'rgba(255,255,255,0.55)';
     ctx.font = '9px Arial';
     ctx.textAlign = 'center';
     ctx.fillText(node.name.split(' ')[0], sx, sy - 8);
   }
 
-  // Current location dot
   if (currentLocation) {
     const { sx, sy } = toScreen(currentLocation.x, currentLocation.y);
     ctx.fillStyle = '#10b981';
@@ -464,7 +535,6 @@ function draw2DMap(ctx, W, H, currentLocation, destination, route, isEmergency) 
     ctx.fillText('YOU', sx, sy + 4);
   }
 
-  // Destination dot
   if (destination) {
     const { sx, sy } = toScreen(destination.x ?? 0, destination.y ?? 0);
     const destColor = isEmergency ? '#ef4444' : '#f59e0b';
@@ -481,35 +551,30 @@ function draw2DMap(ctx, W, H, currentLocation, destination, route, isEmergency) 
     ctx.fillText('DEST', sx, sy + 4);
   }
 
-  // 2D mode label
   ctx.fillStyle = 'rgba(255,255,255,0.35)';
   ctx.font = '12px Arial';
   ctx.textAlign = 'left';
   ctx.fillText('2D Map View', 12, 20);
 }
 
-// ──────────────────────────────────────────────────────────────────────
-// Helper: small top-left compass HUD
-// ──────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────────
+// Helper: compass HUD (canvas, bottom-right)
+// ──────────────────────────────────────────────────────────────────────────────
 function drawCompassHUD(ctx, W, H, heading, cameraActive) {
-  // Position: bottom-right, above the action bar (~160px from bottom)
   const cx = W - 55;
   const cy = H - 160;
   const r = 32;
 
-  // Background
   ctx.fillStyle = 'rgba(0,0,0,0.65)';
   roundRect(ctx, W - 100, H - 200, 90, 90, 10);
   ctx.fill();
 
-  // Compass ring
   ctx.strokeStyle = '#00ff00';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
   ctx.stroke();
 
-  // North marker (rotates with heading)
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(-heading * (Math.PI / 180));
@@ -522,7 +587,6 @@ function drawCompassHUD(ctx, W, H, heading, cameraActive) {
   ctx.fillText('S', 0, r - 8);
   ctx.restore();
 
-  // Camera status
   ctx.fillStyle = cameraActive ? '#00ff00' : '#f59e0b';
   ctx.font = '9px Arial';
   ctx.textAlign = 'center';
@@ -531,9 +595,9 @@ function drawCompassHUD(ctx, W, H, heading, cameraActive) {
   ctx.textBaseline = 'alphabetic';
 }
 
-// ──────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────────
 // Utility: rounded rectangle path
-// ──────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────────
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);

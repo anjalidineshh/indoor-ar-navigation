@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ARVisualization from '../components/ARVisualization';
 import { getRoute, getEvacuationRoute } from '../logic/pathfinding';
-import { getLocationNames } from '../data/indoorMap';
+import { getLocationNames, getLocationById } from '../data/indoorMap';
 
 const PHASE = {
   START: 'start',        // Intro screen with "Start Navigation" button
@@ -19,6 +19,9 @@ function NavigatePage({
   const [locations, setLocations] = useState([]);
   const [route, setRoute] = useState(null);
   const [isEmergency, setIsEmergency] = useState(false);
+  // waypointIndex = index in route.path of the NEXT room to head toward
+  // 0 = current location, 1 = first stop, path.length-1 = destination
+  const [waypointIndex, setWaypointIndex] = useState(1);
   // Restore correct phase when returning from 2D Map
   const [phase, setPhase] = useState(() => {
     if (currentLocation && destination) return PHASE.AR;
@@ -45,15 +48,33 @@ function NavigatePage({
   // Calculate route whenever source / dest / emergency changes
   useEffect(() => {
     if (isEmergency && currentLocation) {
-      setRoute(getEvacuationRoute(currentLocation.id));
+      const r = getEvacuationRoute(currentLocation.id);
+      setRoute(r);
+      setWaypointIndex(1); // reset to first step
     } else if (currentLocation && destination) {
-      setRoute(getRoute(currentLocation.id, destination.id));
+      const r = getRoute(currentLocation.id, destination.id);
+      setRoute(r);
+      setWaypointIndex(1); // reset to first step
     }
   }, [currentLocation, destination, isEmergency]);
 
 
   const handleLocationFound = (loc) => {
-    if (loc && phase === PHASE.SCANNING) setCurrentLocation(loc);
+    if (!loc) return;
+    if (phase === PHASE.SCANNING) {
+      setCurrentLocation(loc);
+      return;
+    }
+    // During AR navigation — if camera sees a room that's in the route path,
+    // auto-advance the waypoint to the NEXT step after that room
+    if (phase === PHASE.AR && route?.path) {
+      const idxInPath = route.path.indexOf(loc.id);
+      if (idxInPath >= 0) {
+        const newIdx = Math.min(idxInPath + 1, route.path.length - 1);
+        setWaypointIndex(newIdx);
+        setCurrentLocation(loc);
+      }
+    }
   };
 
   const handleSelectDestination = (loc) => {
@@ -232,15 +253,24 @@ function NavigatePage({
   // ────────────────────────────────────────────────────────
   // PHASE: AR — full navigation view
   // ────────────────────────────────────────────────────────
-  const arDest = isEmergency
-    ? { name: 'EMERGENCY EXIT', id: route?.path?.[route.path.length - 1], x: 0, y: 0 }
-    : destination;
+  const path = route?.path || [];
+  const totalSteps = Math.max(path.length - 1, 1);
+  const safeWpIdx = Math.min(waypointIndex, path.length - 1);
+  const nextWaypointId = path[safeWpIdx];
+  const nextWaypoint = nextWaypointId ? getLocationById(nextWaypointId) : null;
+  const isLastStep = safeWpIdx >= path.length - 1;
+  const hasArrived = isLastStep && path.length > 1;
+
+  // Arrow points to NEXT WAYPOINT in path, not straight to final destination
+  const arrowTarget = isEmergency
+    ? { name: 'EMERGENCY EXIT', id: path[path.length - 1], x: 0, y: 0 }
+    : (nextWaypoint || destination);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden', background: '#000' }}>
       <ARVisualization
         currentLocation={currentLocation}
-        destination={arDest}
+        destination={arrowTarget}
         route={route}
         onLocationFound={handleLocationFound}
         isEmergency={isEmergency}
@@ -298,48 +328,89 @@ function NavigatePage({
       {/* ── Bottom info / action bar ── */}
       <div style={{
         position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 30,
-        background: 'linear-gradient(to top, rgba(0,0,0,0.9) 60%, transparent 100%)',
-        padding: '2.5rem 1.5rem 2rem',
+        background: 'linear-gradient(to top, rgba(0,0,0,0.95) 60%, transparent 100%)',
+        padding: '1.5rem 1.5rem 2rem',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1rem' }}>
-          <div>
-            <div style={{ color: '#64748b', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-              Navigating to
+
+        {/* Arrived banner */}
+        {hasArrived && (
+          <div style={{
+            background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)',
+            borderRadius: '14px', padding: '0.875rem 1rem',
+            marginBottom: '0.875rem', textAlign: 'center',
+          }}>
+            <div style={{ color: '#10b981', fontWeight: '700', fontSize: '1.1rem' }}>✅ You have arrived!</div>
+            <div style={{ color: '#64748b', fontSize: '0.8rem', marginTop: '2px' }}>{destination?.name}</div>
+          </div>
+        )}
+
+        {/* Step counter + next room */}
+        {!hasArrived && nextWaypoint && (
+          <div style={{
+            background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.25)',
+            borderRadius: '14px', padding: '0.75rem 1rem',
+            marginBottom: '0.75rem',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <div>
+              <div style={{ color: '#64748b', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Step {safeWpIdx} of {totalSteps}
+              </div>
+              <div style={{ color: '#3b82f6', fontWeight: '700', fontSize: '1rem', marginTop: '2px' }}>
+                → Head to: {nextWaypoint.name}
+              </div>
             </div>
-            <div style={{ color: '#fff', fontSize: '1.05rem', fontWeight: '700' }}>
-              {arDest?.name || '—'}
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ color: '#10b981', fontSize: '1.4rem', fontWeight: '800', lineHeight: 1 }}>
+                {route?.distance ? route.distance.toFixed(0) : '—'}m
+              </div>
+              <div style={{ color: '#64748b', fontSize: '0.7rem' }}>total</div>
             </div>
           </div>
-          {route && (
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ color: '#10b981', fontSize: '1.8rem', fontWeight: '800', lineHeight: 1 }}>
-                {route.distance.toFixed(0)}m
-              </div>
-              <div style={{ color: '#64748b', fontSize: '0.72rem' }}>away</div>
-            </div>
-          )}
+        )}
+
+        {/* Final destination label */}
+        <div style={{ color: '#64748b', fontSize: '0.75rem', marginBottom: '0.75rem' }}>
+          🎯 Destination: <span style={{ color: '#fff' }}>{destination?.name || arrowTarget?.name}</span>
         </div>
 
+        {/* Action buttons */}
         <div style={{ display: 'flex', gap: '0.65rem' }}>
           {isEmergency ? (
             <button className="btn btn-secondary" onClick={handleCancelEmergency} style={{ flex: 1 }}>
               Cancel Emergency
             </button>
           ) : (
-            <button className="btn btn-danger" onClick={handleEmergency} style={{ flex: 1 }}>
-              🚨 Emergency Exit
+            <button className="btn btn-danger" onClick={handleEmergency} style={{ flex: 1, fontSize: '0.85rem' }}>
+              🚨 Emergency
             </button>
           )}
+
+          {/* Manual advance button — tap when you physically reach the waypoint */}
+          {!hasArrived && !isEmergency && (
+            <button
+              onClick={() => setWaypointIndex(v => Math.min(v + 1, path.length - 1))}
+              style={{
+                background: 'rgba(16,185,129,0.2)', color: '#10b981',
+                border: '1px solid rgba(16,185,129,0.4)', borderRadius: '12px',
+                padding: '0.75rem 0.875rem', cursor: 'pointer',
+                fontSize: '0.8rem', fontWeight: '600', whiteSpace: 'nowrap',
+              }}
+            >
+              ✓ Reached
+            </button>
+          )}
+
           <button
             onClick={() => setPhase(PHASE.DESTINATION)}
             style={{
               background: 'rgba(255,255,255,0.08)', color: '#fff',
               border: '1px solid rgba(255,255,255,0.15)', borderRadius: '12px',
-              padding: '0.75rem 1rem', cursor: 'pointer',
-              fontSize: '0.85rem', whiteSpace: 'nowrap',
+              padding: '0.75rem 0.875rem', cursor: 'pointer',
+              fontSize: '0.8rem', whiteSpace: 'nowrap',
             }}
           >
-            Change Dest.
+            Change
           </button>
         </div>
       </div>

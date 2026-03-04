@@ -2,6 +2,18 @@ import { dijkstra, aStar } from './algorithms';
 import { getGraph } from '../data/indoorMap';
 
 /**
+ * Augment a route result with a `waypoints` array — full node objects (id, name, x, y)
+ * for each node in the path. Used by ARThreeScene.js for 3D waypoint rendering.
+ * Pattern inspired by FireDragonGameStudio/ARIndoorNavigation-Threejs: path points
+ * are converted to Vector3 positions for THREE.Line / navCube markers.
+ */
+function addWaypoints(route, graph) {
+  if (!route || !route.path) return route;
+  route.waypoints = route.path.map(id => graph.getNode(id)).filter(Boolean);
+  return route;
+}
+
+/**
  * Get the optimal route between two locations
  */
 export function getRoute(startLocationId, endLocationId, useAstar = true) {
@@ -19,11 +31,11 @@ export function getRoute(startLocationId, endLocationId, useAstar = true) {
     return Math.sqrt(dx * dx + dy * dy);
   };
 
-  if (useAstar) {
-    return aStar(graph, startLocationId, endLocationId, heuristic);
-  } else {
-    return dijkstra(graph, startLocationId, endLocationId);
-  }
+  const result = useAstar
+    ? aStar(graph, startLocationId, endLocationId, heuristic)
+    : dijkstra(graph, startLocationId, endLocationId);
+
+  return addWaypoints(result, graph);
 }
 
 /**
@@ -52,7 +64,7 @@ export function getEvacuationRoute(currentLocationId) {
     }
   }
 
-  return shortestRoute;
+  return addWaypoints(shortestRoute, graph);
 }
 
 /**
