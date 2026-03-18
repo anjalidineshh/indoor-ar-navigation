@@ -422,7 +422,7 @@ const sections = [
     color: C.secondary,
     items: [
       { name: 'Pathfinding Engine (A* / Dijkstra)', desc: 'Graph-based shortest-path computation. A* uses Euclidean heuristic for speed; Dijkstra guarantees optimality. Both implemented in src/logic/algorithms.js.' },
-      { name: 'OCR Engine (Tesseract.js)', desc: 'Reads room-name text boards from camera frames to determine the user\'s starting room without a physical marker install.' },
+      { name: 'OCR Engine (Tesseract.js)', desc: 'Reads room-name text boards from camera frames to determine the user\'s current room. Point the camera at any sign that says the room name — no physical marker installation needed.' },
       { name: 'AR Renderer (Three.js)', desc: 'Projects 3-D objects onto the 2-D camera canvas. Uses device gyroscope/compass data for heading-aligned arrow display.' },
       { name: 'Graph Engine', desc: 'Manages the in-memory graph of nodes (rooms) and weighted edges (corridors). Handles dynamic edge removal during emergencies (blocked exits).' },
       { name: 'Sensor Fusion', desc: 'Combines device gyroscope, accelerometer, and (optionally) BLE RSSI data to improve localisation accuracy beyond camera-only OCR.' },
@@ -534,7 +534,7 @@ function ArchitecturePage({ onBack }) {
             🔄 Primary Data Flow
           </div>
           {[
-            '① Camera captures room sign / marker → OCR or ArUco detection identifies current location',
+            '① Camera captures room-name sign → Tesseract.js OCR reads the text → location node resolved (e.g. "AI HOD ROOM" → ai_hod)',
             '② Location node resolved → user selects destination → Navigation Service invokes A* / Dijkstra',
             '③ Optimal path returned → WebSocket streams step updates → AR Overlay renders directional arrow',
             '④ Floor Plan UI highlights live route; each step triggers a REST call to log the event',

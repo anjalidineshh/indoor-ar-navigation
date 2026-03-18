@@ -1,0 +1,94 @@
+.ocr-container {
+  width: 100%;
+  height: calc(100vh - 80px);
+  margin-top: 80px;
+  position: relative;
+  background-color: #000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  padding-top: 0;
+}
+
+.ocr-video {
+  max-width: 300px;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 20px;
+}
+
+.ocr-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.ocr-frame {
+  max-width: 300px;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border: 3px solid #00ff00;
+  border-radius: 20px;
+  box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.3);
+  animation: ocr-pulse 2s infinite;
+}
+
+@keyframes ocr-pulse {
+  0%,
+  100% {
+    box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.3), 0 0 10px rgba(0, 255, 0, 0.5);
+  }
+
+  50% {
+    box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.1), 0 0 20px rgba(0, 255, 0, 0.8);
+  }
+}
+
+.ocr-error {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  right: 20px;
+  background: #ff4444;
+  color: white;
+  padding: 15px;
+  border-radius: 8px;
+  text-align: center;
+  z-index: 20;
+}
+
+.ocr-scanning {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #00ff00;
+  font-size: 16px;
+  font-weight: bold;
+  animation: ocr-blink 1.5s infinite;
+  z-index: 20;
+}
+
+@keyframes ocr-blink {
+  0%,
+  50%,
+  100% {
+    opacity: 1;
+  }
+
+  25%,
+  75% {
+    opacity: 0.3;
+  }
+}

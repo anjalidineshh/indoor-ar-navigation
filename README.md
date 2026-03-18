@@ -4,7 +4,7 @@ A web-based augmented reality indoor navigation and emergency guidance system fo
 
 ## Features
 
-- **QR-Based Localization**: Uses QR codes to determine user's starting position
+- **OCR-Based Localization**: Uses Tesseract.js OCR to read room-name signs (e.g. "AI HOD ROOM") and determine the user's current position — no QR codes or physical markers required
 - **Graph-Based Pathfinding**: Implements Dijkstra and A* algorithms for optimal route calculation
 - **AR Visualization**: Real-time directional guidance overlay
 - **Emergency Evacuation**: Dynamic safe exit routing
@@ -69,7 +69,7 @@ The SafeNav system is structured in seven layers. An interactive SVG diagram and
 ```
 src/
 ├── components/
-│   ├── QRLocalization.js      # OCR scanning and localisation
+│   ├── OCRLocalization.js     # OCR scanning and localisation (Tesseract.js)
 │   ├── NavigationView.js      # Navigation UI panel
 │   ├── ARVisualization.js     # AR overlay visualisation
 │   ├── ARThreeScene.js        # Three.js 3-D scene
@@ -132,16 +132,17 @@ npm build
 3. **Emergency Mode**: Press Emergency button to get evacuation route to nearest exit
 4. **Architecture**: Open the Architecture page from the navbar to view the full system diagram
 
-## QR Code Format
+## How OCR Localization Works
 
-QR codes should contain JSON with location data:
-```json
-{
-  "id": "location_id",
-  "name": "Location Name",
-  "x": 50,
-  "y": 50
-}
+The app uses **Tesseract.js** to read natural room-name signs from the camera feed (no QR codes or physical markers required):
+
+1. Live video frame is captured via `getUserMedia` (back camera)
+2. Tesseract.js runs OCR on the frame and returns the detected text
+3. The text is matched against known location names using keyword fuzzy matching (≥ 60% keyword overlap)
+4. On a successful match the location node is resolved and navigation begins
+
+```
+Camera Frame → Tesseract OCR → "AI HOD ROOM" → fuzzy match → location: ai_hod
 ```
 
 ## Algorithms
