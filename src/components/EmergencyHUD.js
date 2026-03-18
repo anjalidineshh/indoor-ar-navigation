@@ -9,6 +9,14 @@ import {
 import './EmergencyHUD.css';
 
 /**
+ * Format a location ID (snake_case) into a human-readable name.
+ */
+function formatLocationName(id) {
+  if (!id) return 'EXIT';
+  return id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/**
  * EmergencyHUD — full-screen overlay displayed when emergency mode is active.
  * Shows countdown timer, step-by-step evacuation directions, exit details,
  * assembly point info, and emergency contacts.
@@ -114,7 +122,7 @@ function EmergencyHUD({
         ) : (
           <>
             <div className="ehud-next-step">
-              → Head to: <strong>{nextNodeId ? nextNodeId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'EXIT'}</strong>
+              → Head to: <strong>{formatLocationName(nextNodeId)}</strong>
             </div>
             <div className="ehud-progress-bar">
               <div

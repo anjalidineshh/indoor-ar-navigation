@@ -2,6 +2,19 @@ import React, { useState, useEffect, useRef } from 'react';
 import { EMERGENCY_EXITS, ASSEMBLY_POINTS, getAssemblyPointForExit, estimateEvacuationTime } from '../data/emergencyData';
 import './EmergencyEvacuationMap.css';
 
+/** Transform constants matching MapPage.js SVG group: translate(115, 85) scale(0.9) */
+const MAP_TRANSLATE_X = 115;
+const MAP_TRANSLATE_Y = 85;
+const MAP_SCALE = 0.9;
+
+/** Convert absolute SVG coordinates to the local coordinate space of the building group */
+function toLocal(x, y) {
+  return {
+    lx: (x - MAP_TRANSLATE_X) / MAP_SCALE,
+    ly: (y - MAP_TRANSLATE_Y) / MAP_SCALE,
+  };
+}
+
 /**
  * SVG floor plan coordinates for each room (matches MapPage.js viewBox 0 0 800 600,
  * with transform="translate(115, 85) scale(0.9)" applied in the parent group).
@@ -49,19 +62,6 @@ function EmergencyEvacuationMap({ currentLocation, evacuationRoute, onClose }) {
   const etaSec = estimateEvacuationTime(totalDist);
 
   /**
-   * Build polyline points string from a list of node IDs via ROOM_POSITIONS.
-   */
-  const buildPolylinePoints = (nodeIds) => {
-    return nodeIds
-      .map(id => ROOM_POSITIONS[id])
-      .filter(Boolean)
-      .map(pos => `${pos.x},${pos.y}`)
-      .join(' ');
-  };
-
-  const routePoints = buildPolylinePoints(path);
-
-  /**
    * Render directional arrows along the route path segments.
    */
   const renderRouteArrows = () => {
@@ -72,9 +72,11 @@ function EmergencyEvacuationMap({ currentLocation, evacuationRoute, onClose }) {
       const to   = ROOM_POSITIONS[path[i + 1]];
       if (!from || !to) continue;
 
-      const mx = (from.x + to.x) / 2;
-      const my = (from.y + to.y) / 2;
-      const angle = Math.atan2(to.y - from.y, to.x - from.x) * (180 / Math.PI);
+      const { lx: fromLx, ly: fromLy } = toLocal(from.x, from.y);
+      const { lx: toLx, ly: toLy }     = toLocal(to.x, to.y);
+      const mx = (fromLx + toLx) / 2;
+      const my = (fromLy + toLy) / 2;
+      const angle = Math.atan2(toLy - fromLy, toLx - fromLx) * (180 / Math.PI);
       const opacity = i === animationStep % (path.length - 1) ? 1 : 0.4;
 
       arrows.push(
@@ -198,14 +200,16 @@ function EmergencyEvacuationMap({ currentLocation, evacuationRoute, onClose }) {
             </g>
 
             {/* Evacuation route polyline */}
-            {routePoints && (
+            {path.length > 1 && (
               <polyline
-                points={buildPolylinePoints(path).replace(/(\d+),(\d+)/g, (_, x, y) => {
-                  // Convert from absolute to relative (subtract translate(115,85)/scale(0.9))
-                  const rx = (parseFloat(x) - 115) / 0.9;
-                  const ry = (parseFloat(y) - 85) / 0.9;
-                  return `${rx},${ry}`;
-                })}
+                points={path
+                  .map(id => ROOM_POSITIONS[id])
+                  .filter(Boolean)
+                  .map(pos => {
+                    const { lx, ly } = toLocal(pos.x, pos.y);
+                    return `${lx},${ly}`;
+                  })
+                  .join(' ')}
                 fill="none"
                 stroke="#ef4444"
                 strokeWidth="6"
@@ -226,9 +230,7 @@ function EmergencyEvacuationMap({ currentLocation, evacuationRoute, onClose }) {
             {EMERGENCY_EXITS.map(exit => {
               const pos = ROOM_POSITIONS[exit.id];
               if (!pos) return null;
-              // Convert absolute → local (translate+scale)
-              const lx = (pos.x - 115) / 0.9;
-              const ly = (pos.y - 85) / 0.9;
+              const { lx, ly } = toLocal(pos.x, pos.y);
               const isTarget = exit.id === exitId;
               return (
                 <g key={exit.id}>
@@ -251,8 +253,7 @@ function EmergencyEvacuationMap({ currentLocation, evacuationRoute, onClose }) {
             {/* Current location marker */}
             {currentLocation && ROOM_POSITIONS[currentLocation.id] && (() => {
               const pos = ROOM_POSITIONS[currentLocation.id];
-              const lx = (pos.x - 115) / 0.9;
-              const ly = (pos.y - 85) / 0.9;
+              const { lx, ly } = toLocal(pos.x, pos.y);
               return (
                 <g>
                   <circle cx={lx} cy={ly} r="14" fill="#3b82f6" opacity="0.85">

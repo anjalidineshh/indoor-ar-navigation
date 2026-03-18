@@ -475,7 +475,7 @@ function NavigatePage({
           waypointIndex={waypointIndex}
           onShowMap={() => { setShowEmergencyHUD(false); setShowEvacMap(true); }}
           onCancelEmergency={handleCancelEmergency}
-          onAdvanceWaypoint={() => setWaypointIndex(v => Math.min(v + 1, path.length - 1))}
+          onAdvanceWaypoint={() => setWaypointIndex(v => Math.min(v + 1, (route?.path?.length ?? 1) - 1))}
         />
       )}
 
