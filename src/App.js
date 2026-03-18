@@ -4,6 +4,7 @@ import NavigatePage from './pages/NavigatePage';
 import MapPage from './pages/MapPage';
 import AboutPage from './pages/AboutPage';
 import GuidePage from './pages/GuidePage';
+import ArchitecturePage from './pages/ArchitecturePage';
 import './global.css';
 import './App.css';
 
@@ -19,6 +20,7 @@ function App() {
   const goToMap = () => setPage('map');
   const goToAbout = () => setPage('about');
   const goToGuide = () => setPage('guide');
+  const goToArchitecture = () => setPage('architecture');
 
   // Emergency Siren Sound Effect
   useEffect(() => {
@@ -82,6 +84,7 @@ function App() {
               <span className={`nav-link ${page === 'home' ? 'active' : ''}`} onClick={goToHome}>Home</span>
               <span className={`nav-link ${(page === 'navigate' || page === 'map') ? 'active' : ''}`} onClick={goToMap}>Navigation</span>
               <span className={`nav-link ${page === 'guide' ? 'active' : ''}`} onClick={goToGuide}>How to Use</span>
+              <span className={`nav-link ${page === 'architecture' ? 'active' : ''}`} onClick={goToArchitecture}>Architecture</span>
               <span className={`nav-link ${page === 'about' ? 'active' : ''}`} onClick={goToAbout}>About</span>
             </div>
 
@@ -130,6 +133,7 @@ function App() {
       )}
       {page === 'guide' && <GuidePage onBack={goToHome} />}
       {page === 'about' && <AboutPage onBack={goToHome} />}
+      {page === 'architecture' && <ArchitecturePage onBack={goToHome} />}
     </div>
   );
 }
