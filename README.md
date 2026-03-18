@@ -32,11 +32,57 @@ src/
 
 ## Tech Stack
 
-- **Frontend**: React 18
-- **AR Visualization**: Three.js (planned)
-- **QR Scanning**: jsQR
-- **Mobile Deployment**: Capacitor
-- **Pathfinding**: Custom A* and Dijkstra implementations
+### Frontend
+| Technology | Version | Purpose |
+|---|---|---|
+| [React](https://react.dev) | 18.2.0 | Core UI framework — component-based SPA |
+| [React DOM](https://react.dev) | 18.2.0 | DOM rendering for React components |
+| [react-scripts](https://create-react-app.dev) | 5.0.1 | Build toolchain (Create React App) |
+| JavaScript (ES6+) | — | Primary programming language |
+| HTML5 Canvas | — | 2D floor-plan and path rendering |
+| WebRTC / MediaDevices API | — | Live camera feed for AR overlay |
+| CSS3 | — | Component styling and responsive layout |
+
+### AR & Visualization
+| Technology | Version | Purpose |
+|---|---|---|
+| [Three.js](https://threejs.org) | 0.160.0 | 3D AR scene rendering and spatial overlays |
+| [Lucide React](https://lucide.dev) | 0.575.0 | Iconography used in the navigation UI |
+
+### Localization & Detection
+| Technology | Version | Purpose |
+|---|---|---|
+| [jsQR](https://github.com/cozmo/jsQR) | 1.4.0 | Real-time QR code scanning and decoding |
+| [Tesseract.js](https://tesseract.projectnaptha.com) | 7.0.0 | OCR engine for text recognition (room plates) |
+
+### Networking
+| Technology | Version | Purpose |
+|---|---|---|
+| [Axios](https://axios-http.com) | 1.4.0 | HTTP client for API requests |
+
+### Performance Monitoring
+| Technology | Version | Purpose |
+|---|---|---|
+| [web-vitals](https://web.dev/vitals/) | 5.1.0 | Core Web Vitals performance metrics |
+
+### Algorithms & Data Structures (Custom)
+| Module | Purpose |
+|---|---|
+| `src/logic/graph.js` | Graph data structure representing locations and corridors |
+| `src/logic/algorithms.js` | Dijkstra's algorithm and A\* with Euclidean heuristic |
+| `src/logic/pathfinding.js` | High-level pathfinding and emergency evacuation API |
+
+### Mobile Deployment
+| Technology | Purpose |
+|---|---|
+| [Capacitor](https://capacitorjs.com) | Cross-platform wrapper for iOS/Android deployment (planned) |
+
+### Development Tools
+| Tool | Purpose |
+|---|---|
+| Node.js 14+ | JavaScript runtime |
+| npm / yarn | Package management |
+| ESLint (react-app) | Code linting |
 
 ## Getting Started
 
@@ -89,7 +135,6 @@ The system uses a graph-based indoor map where:
 
 ## Future Enhancements
 
-- [ ] Three.js 3D visualization
 - [ ] Real-time multiplayer navigation
 - [ ] Integration with building HVAC for emergency assistance
 - [ ] Advanced sensor fusion (WiFi, BLE beacons)
