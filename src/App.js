@@ -4,6 +4,7 @@ import NavigatePage from './pages/NavigatePage';
 import MapPage from './pages/MapPage';
 import AboutPage from './pages/AboutPage';
 import GuidePage from './pages/GuidePage';
+import EmergencyAlert from './components/EmergencyAlert';
 import './global.css';
 import './App.css';
 
@@ -20,7 +21,7 @@ function App() {
   const goToAbout = () => setPage('about');
   const goToGuide = () => setPage('guide');
 
-  // Emergency Siren Sound Effect
+  // Emergency Siren Sound Effect + Vibration
   useEffect(() => {
     let audioCtx;
     let oscillator;
@@ -28,6 +29,11 @@ function App() {
     let interval;
 
     if (globalEmergency) {
+      // Haptic vibration feedback (supported on mobile browsers)
+      if (navigator.vibrate) {
+        navigator.vibrate([500, 200, 500, 200, 500]);
+      }
+
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       oscillator = audioCtx.createOscillator();
       gainNode = audioCtx.createGain();
@@ -49,7 +55,16 @@ function App() {
           oscillator.frequency.setValueAtTime(up ? 800 : 400, audioCtx.currentTime);
           up = !up;
         }
+        // Repeat vibration pattern every 2 seconds
+        if (navigator.vibrate) {
+          navigator.vibrate([300, 100, 300]);
+        }
       }, 500); // toggle every 500ms
+    } else {
+      // Stop vibration when emergency is cancelled
+      if (navigator.vibrate) {
+        navigator.vibrate(0);
+      }
     }
 
     return () => {
@@ -130,6 +145,18 @@ function App() {
       )}
       {page === 'guide' && <GuidePage onBack={goToHome} />}
       {page === 'about' && <AboutPage onBack={goToHome} />}
+
+      {/* Floating Emergency Alert button — visible on all pages except navigate (which has its own HUD) */}
+      {page !== 'navigate' && (
+        <EmergencyAlert
+          isActive={globalEmergency}
+          onActivate={() => {
+            setGlobalEmergency(true);
+            setPage('navigate');
+          }}
+          onCancel={() => setGlobalEmergency(false)}
+        />
+      )}
     </div>
   );
 }
