@@ -2,17 +2,18 @@
  * Localization Module
  * Inspired by ARIndoorNav's OCR marker detection
  * 
- * Instead of OCR from room plates, we use QR codes
- * QR Code carries JSON with location data
+ * Uses Tesseract.js OCR to read room-name signs (e.g. "AI HOD ROOM")
+ * from the live camera feed and resolve them to indoor map location nodes.
  */
 
 /**
- * Parse QR data to get user location
- * QR Format: {"id":"location_id","name":"Location Name","x":0,"y":50}
+ * Parse OCR-detected location text to get user location.
+ * Expected format when reading structured JSON from a digital sign:
+ * {"id":"location_id","name":"Location Name","x":0,"y":50}
  */
-export function parseQRLocation(qrData) {
+export function parseOCRLocation(ocrData) {
   try {
-    const locationData = JSON.parse(qrData);
+    const locationData = JSON.parse(ocrData);
     
     // Validate required fields
     if (!locationData.id || locationData.x === undefined || locationData.y === undefined) {
@@ -28,7 +29,7 @@ export function parseQRLocation(qrData) {
       timestamp: Date.now()
     };
   } catch (error) {
-    console.error('QR parsing error:', error);
+    console.error('OCR location parse error:', error);
     return null;
   }
 }
@@ -68,8 +69,8 @@ export function getUserPose(location) {
 }
 
 /**
- * Handle re-localization if user scans another QR code
- * This helps correct drift and improve accuracy
+ * Handle re-localization when user scans another room sign.
+ * This helps correct drift and improve accuracy.
  */
 export function updateLocalization(currentLocation, newLocation) {
   return {

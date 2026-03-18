@@ -10,16 +10,16 @@
  * 
  * PRESENTER (Business Logic)
  * ├── pathfinding.js      - Route calculations
- * └── localization.js     - QR-based user positioning (OCR equivalent)
+ * └── localization.js     - OCR-based user positioning via room-sign scanning
  * 
  * VIEW (UI Components)
- * ├── QRLocalization.js   - Marker detection (QR instead of OCR)
+ * ├── OCRLocalization.js  - Camera OCR scanning of room name signs (Tesseract.js)
  * ├── ARVisualization.js  - AR line guidance on camera feed
  * ├── FloorPlan.js        - 2D floor overview
  * └── NavigationView.js   - Destination selection & route info
  * 
  * DATA FLOW
- * User Scan QR → Localization → Get Current Position → 
+ * Scan Room Sign (OCR) → Localization → Get Current Position → 
  * Select Destination → Pathfinding Calculation → 
  * AR Visualization (Line/Arrow) + Floor Plan Update
  */
@@ -48,7 +48,7 @@
 // 3. VIEW LAYER (UI)
 // ====================
 // Location: src/components/
-// - QRLocalization.js    → Marker detection interface
+// - OCRLocalization.js    → Room-sign OCR scanning interface
 // - ARVisualization.js   → AR overlay with directional line
 // - FloorPlan.js         → 2D floor map visualization
 // - NavigationView.js    → User interaction & routing
@@ -56,9 +56,9 @@
 export const ARCHITECTURE = {
   model: ['indoorMap.js', 'graph.js', 'algorithms.js'],
   presenter: ['pathfinding.js', 'localization.js'],
-  view: ['QRLocalization', 'ARVisualization', 'FloorPlan', 'NavigationView'],
+  view: ['OCRLocalization', 'ARVisualization', 'FloorPlan', 'NavigationView'],
   dataFlow: [
-    'QR Scan',
+    'OCR Room Sign Scan',
     'Localization',
     'Destination Selection',
     'Pathfinding',

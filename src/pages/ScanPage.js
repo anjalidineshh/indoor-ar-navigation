@@ -1,5 +1,5 @@
 import React from 'react';
-import QRLocalization from '../components/QRLocalization';
+import OCRLocalization from '../components/OCRLocalization';
 import './ScanPage.css';
 
 function ScanPage({ onLocalize, onBack }) {
@@ -10,7 +10,7 @@ function ScanPage({ onLocalize, onBack }) {
       </div>
       <h1 className="page-title">Scan Room Sign</h1>
       <p className="page-subtitle">Position the room name sign inside the glowing frame below for automatic detection.</p>
-      <QRLocalization onLocalize={onLocalize} />
+      <OCRLocalization onLocalize={onLocalize} />
     </div>
   );
 }
