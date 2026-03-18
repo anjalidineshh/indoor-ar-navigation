@@ -1,0 +1,176 @@
+/* ── Floating Action Button ── */
+.emergency-fab {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.25rem;
+  z-index: 150;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 4px 20px rgba(239, 68, 68, 0.6),
+    0 0 0 0 rgba(239, 68, 68, 0.4);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  transition: transform 0.15s, box-shadow 0.15s;
+  animation: fab-pulse 2s ease-in-out infinite;
+  font-family: 'Outfit', sans-serif;
+}
+
+@keyframes fab-pulse {
+  0%, 100% {
+    box-shadow:
+      0 4px 20px rgba(239, 68, 68, 0.6),
+      0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 4px 25px rgba(239, 68, 68, 0.8),
+      0 0 0 10px rgba(239, 68, 68, 0);
+  }
+}
+
+.emergency-fab:active {
+  transform: scale(0.93);
+}
+
+.emergency-fab-active {
+  background: linear-gradient(135deg, #6b7280, #374151);
+  animation: none;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+}
+
+.emergency-fab-active:hover {
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+}
+
+.emergency-fab-icon {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.emergency-fab-label {
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+/* ── Confirmation Dialog ── */
+.emergency-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  backdrop-filter: blur(6px);
+  animation: backdrop-in 0.2s ease;
+}
+
+@keyframes backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.emergency-dialog {
+  background: #121a2f;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 20px;
+  padding: 2rem 1.5rem;
+  max-width: 340px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(239, 68, 68, 0.15);
+  animation: dialog-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: 'Outfit', sans-serif;
+}
+
+@keyframes dialog-in {
+  from { opacity: 0; transform: scale(0.9) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.emergency-dialog-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.emergency-dialog-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #e8d8c4;
+  margin-bottom: 0.6rem;
+}
+
+.emergency-dialog-body {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+.emergency-dialog-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.emergency-dialog-btn {
+  width: 100%;
+  padding: 0.875rem;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-family: inherit;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.emergency-dialog-btn:active {
+  transform: scale(0.98);
+  opacity: 0.85;
+}
+
+.emergency-dialog-btn-confirm {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+}
+
+.emergency-dialog-btn-danger {
+  background: rgba(107, 114, 128, 0.3);
+  color: #e2e8f0;
+  border: 1px solid rgba(107, 114, 128, 0.4);
+}
+
+.emergency-dialog-btn-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  color: #94a3b8;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* High-contrast accessibility */
+@media (prefers-contrast: high) {
+  .emergency-fab {
+    background: #f00;
+    border-color: #fff;
+    box-shadow: 0 0 0 3px #fff;
+  }
+
+  .emergency-dialog {
+    background: #000;
+    border-color: #f00;
+  }
+}
