@@ -1,105 +1,135 @@
-# AR-Based Smart Indoor Navigation System
+# SafeNav - AR Indoor Navigation (React)
 
-A web-based augmented reality indoor navigation and emergency guidance system for complex indoor environments.
+SafeNav is a web-based indoor navigation prototype for Sri Abhinava Vidyatirtha Block. It combines camera-based AR guidance, graph pathfinding (A* and Dijkstra), emergency evacuation routing, and a 2D floor map.
 
-## Features
+## Current Status (Verified)
 
-- **QR-Based Localization**: Uses QR codes to determine user's starting position
-- **Graph-Based Pathfinding**: Implements Dijkstra and A* algorithms for optimal route calculation
-- **AR Visualization**: Real-time directional guidance overlay
-- **Emergency Evacuation**: Dynamic safe exit routing
-- **React Frontend**: Modern, responsive UI suitable for mobile devices
-- **Capacitor Support**: Ready for mobile deployment (iOS/Android)
+- Architecture: Single React app (no backend service in this repo)
+- Routing style: In-app page state (not react-router)
+- Build status: Production build succeeds with warnings
+- Last verified: April 21, 2026
 
-## Project Structure
+## Features Implemented
 
-```
-src/
-├── components/
-│   ├── QRLocalization.js      # QR code scanning and localization
-│   ├── NavigationView.js      # Navigation UI panel
-│   └── ARVisualization.js     # AR overlay visualization
-├── logic/
-│   ├── graph.js               # Graph data structure
-│   ├── algorithms.js          # Dijkstra and A* algorithms
-│   └── pathfinding.js         # High-level pathfinding API
-├── data/
-│   └── indoorMap.js           # Indoor map graph and location data
-├── ar/                        # AR-specific modules (Three.js integration)
-├── App.js                     # Main application component
-└── index.js                   # React entry point
-```
+- Indoor graph model with named rooms, stairs, exits, and measured edge distances
+- Pathfinding:
+    - A* for normal navigation
+    - Dijkstra for emergency nearest-exit route
+- AR navigation flow:
+    - Initial marker-based localization using MindAR image targets
+    - Camera overlay with direction arrow and compass-style heading
+    - Step-progress movement using accelerometer pedometer fallback simulation
+- Emergency mode:
+    - Global emergency toggle from top navbar
+    - Nearest-exit route calculation and emergency UI states
+    - Alarm sound asset available in public/sounds/alarm.mp3
+- 2D building map view with dynamic route drawing
+- Mobile-focused guide and about pages
 
 ## Tech Stack
 
-- **Frontend**: React 18
-- **AR Visualization**: Three.js (planned)
-- **QR Scanning**: jsQR
-- **Mobile Deployment**: Capacitor
-- **Pathfinding**: Custom A* and Dijkstra implementations
+- React 18 (Create React App)
+- JavaScript (ES6)
+- Three.js (included dependency; parts are experimental)
+- MindAR + A-Frame (loaded from CDN at runtime)
+- Tesseract.js (legacy OCR component exists)
 
-## Getting Started
+## Run Locally
 
-### Prerequisites
-- Node.js 14+ 
-- npm or yarn
-
-### Installation
+### 1) Install dependencies
 
 ```bash
-# Install dependencies
 npm install
+```
 
-# Start development server
+### 2) Start development server
+
+```bash
 npm start
-
-# Build for production
-npm build
 ```
 
-## Usage
+App runs at http://localhost:3000
 
-1. **Localization**: App starts by prompting user to scan a QR code with their location
-2. **Navigation**: User selects a destination and AR overlay provides directions
-3. **Emergency Mode**: Press Emergency button to get evacuation route to nearest exit
+### 3) Create production build
 
-## QR Code Format
-
-QR codes should contain JSON with location data:
-```json
-{
-  "id": "location_id",
-  "name": "Location Name",
-  "x": 50,
-  "y": 50
-}
+```bash
+npm run build
 ```
 
-## Algorithms
+## Scripts
 
-- **Dijkstra's Algorithm**: Guaranteed shortest path, no heuristic
-- **A* Algorithm**: Faster pathfinding using Euclidean distance heuristic
+- npm start - Run development server
+- npm run build - Create optimized production build
+- npm test - Run test runner (if tests are added)
 
-## Indoor Map
+## How Navigation Works
 
-The system uses a graph-based indoor map where:
-- **Nodes** represent locations (rooms, corridors, etc.)
-- **Edges** represent connections with distances
-- Each location has 2D coordinates for AR calculations
+1. Open Navigate mode.
+2. Camera starts and attempts initial localization using MindAR marker targets.
+3. After location detection, user selects destination.
+4. Route is computed from indoor graph.
+5. AR overlay guides to next waypoint, with pedometer-based progress.
+6. Emergency mode can override destination and route to nearest exit.
 
-## Future Enhancements
+## Project Structure (Actual)
 
-- [ ] Three.js 3D visualization
-- [ ] Real-time multiplayer navigation
-- [ ] Integration with building HVAC for emergency assistance
-- [ ] Advanced sensor fusion (WiFi, BLE beacons)
-- [ ] Offline map support
-- [ ] Accessibility features (audio guidance)
+```text
+indoornav/
+├── public/
+│   ├── index.html
+│   ├── ar.html
+│   └── sounds/
+│       └── alarm.mp3
+├── src/
+│   ├── App.js
+│   ├── data/
+│   │   └── indoorMap.js
+│   ├── logic/
+│   │   ├── graph.js
+│   │   ├── algorithms.js
+│   │   ├── pathfinding.js
+│   │   ├── localization.js
+│   │   └── pedometerNav.js
+│   ├── components/
+│   │   ├── ARVisualization.js
+│   │   ├── ARVisualizationWebXR.js
+│   │   ├── ARThreeScene.js
+│   │   ├── ARThreeSceneWebXR.js
+│   │   ├── QRLocalization.js
+│   │   ├── FloorPlan.js
+│   │   └── NavigationView.js
+│   └── pages/
+│       ├── HomePage.js
+│       ├── NavigatePage.js
+│       ├── MapPage.js
+│       ├── GuidePage.js
+│       └── AboutPage.js
+└── package.json
+```
 
-## License
+## Important Setup Note (Markers)
 
-MIT License
+Current code expects MindAR target file at:
 
-## Contact
+- /markers/targets.mind
 
-For questions or suggestions, please reach out to the development team.
+This file/folder is not present in this repository snapshot. Without it, marker-based initial localization in ARVisualization cannot complete as designed.
+
+To enable marker localization:
+
+1. Prepare marker images in a fixed order matching MARKER_TARGETS in src/components/ARVisualization.js.
+2. Compile them using MindAR compiler tool.
+3. Add generated targets.mind to public/markers/targets.mind.
+
+## Known Gaps / Legacy Notes
+
+- README and setup docs were previously describing frontend/backend split; this repo is currently frontend-only.
+- QRLocalization.js now performs OCR-style text matching via Tesseract, but main navigation flow currently uses MindAR marker detection.
+- WebXR/Three.js files exist but are not the default active flow in App.js.
+- Current build shows only lint warnings, no compile errors.
+
+## Academic Context
+
+- Project label in UI: Dept of AI (2023-2027)
+- Term shown in UI: Spring 2026
+- Prototype focus: indoor safety navigation and evacuation assistance
