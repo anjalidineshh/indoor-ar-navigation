@@ -1,363 +1,203 @@
-# AR Indoor Navigation System - Architecture & Implementation
+# SafeNav Implementation Guide
 
 ## Overview
-This project implements AR-based indoor navigation inspired by **ARIndoorNav** (Unity-based), but adapted for **web technologies (React)** and customized for **Sri Abhinava Vidyatirtha Block**.
 
----
+SafeNav is a web-based indoor navigation prototype for Sri Abhinava Vidyatirtha Block.
+It provides:
 
-## Architecture Comparison
+- Camera-driven indoor guidance
+- Graph-based shortest-path routing
+- Emergency evacuation to nearest exit
+- 2D map fallback and route preview
 
-### ARIndoorNav (Reference)
-- **Language**: C# (Unity)
-- **Localization**: OCR from room plates
-- **Pathfinding**: Unity NavMesh
-- **Visualization**: 3D models + Line guidance
-- **Platforms**: Android (ARCore)
+The current implementation is a single React application (frontend only).
 
-### Our Implementation (Web-based)
-- **Language**: JavaScript (React)
-- **Localization**: QR codes (JSON data)
-- **Pathfinding**: A* & Dijkstra algorithms
-- **Visualization**: 2D floor plan + AR camera overlay
-- **Platforms**: Web (mobile-ready with Capacitor)
+## Current Architecture
 
----
+### Application Layer
 
-## System Architecture: MVP Pattern
+- Framework: React 18 (Create React App)
+- Entry point: src/index.js
+- Main controller: src/App.js
+- Navigation style: in-app state (not react-router)
 
-```
-┌─────────────────────────────────────────────────────┐
-│                    MODELS (Data Layer)              │
-├─────────────────────────────────────────────────────┤
-│                                                     │
-│  • indoorMap.js    → Building structure definition │
-│  • graph.js        → Graph data structure          │
-│  • algorithms.js   → Pathfinding algorithms        │
-│                                                     │
-└────────────┬───────────────────────────────────────┘
-             │
-┌────────────▼───────────────────────────────────────┐
-│               PRESENTERS (Business Logic)          │
-├─────────────────────────────────────────────────────┤
-│                                                     │
-│  • pathfinding.js  → Route calculation             │
-│  • localization.js → QR position detection         │
-│                                                     │
-└────────────┬───────────────────────────────────────┘
-             │
-┌────────────▼───────────────────────────────────────┐
-│                  VIEWS (UI Components)             │
-├─────────────────────────────────────────────────────┤
-│                                                     │
-│  • QRLocalization.js   → QR scanner interface      │
-│  • ARVisualization.js  → AR camera overlay         │
-│  • FloorPlan.js        → 2D floor map view         │
-│  • NavigationView.js   → Route selection & info    │
-│                                                     │
-└─────────────────────────────────────────────────────┘
-```
+### Domain Layer
 
----
+- Graph model: src/logic/graph.js
+- Algorithms: src/logic/algorithms.js
+- Routing API: src/logic/pathfinding.js
+- Building map data: src/data/indoorMap.js
 
-## Data Flow
+### UI Layer
 
-```
-1. USER SCAN QR CODE
-   ↓
-   QRLocalization.js (View)
-   ↓
-   localization.js (Presenter)
-   ↓
-   indoorMap.js (Model)
-   ↓
-   ✓ User position known
+- Home: src/pages/HomePage.js
+- Navigate flow: src/pages/NavigatePage.js
+- 2D map: src/pages/MapPage.js
+- Help/About: src/pages/GuidePage.js, src/pages/AboutPage.js
+- AR overlay and scanning pipeline: src/components/ARVisualization.js
 
-2. USER SELECTS DESTINATION
-   ↓
-   NavigationView.js (View)
-   ↓
-   pathfinding.js (Presenter)
-   ↓
-   algorithms.js → A* Pathfinding (Model)
-   ↓
-   ✓ Route calculated
+## Routing Logic
 
-3. DISPLAY GUIDANCE
-   ↓
-   ARVisualization.js + FloorPlan.js (Views)
-   ↓
-   ✓ Line guidance + AR overlay shown
-```
+### Normal Navigation
 
----
+- Primary method: A*
+- Why: Fast for single source to known destination queries
+- Implementation: getRoute(startLocationId, endLocationId, useAstar = true)
 
-## Building Map Structure
+### Emergency Evacuation
 
-### Sri Abhinava Vidyatirtha Block - Floor Plan
+- Current method: Dijkstra
+- Why Dijkstra here:
+  - Emergency destination is not fixed beforehand.
+  - System must choose nearest exit among multiple exits.
+  - Dijkstra guarantees shortest weighted path without heuristic assumptions.
+  - For this graph size, runtime is easily acceptable.
+- Implementation: getEvacuationRoute(currentLocationId)
 
-**Locations (21 nodes):**
+### Practical Note
 
-| Wing | Location | ID | Coordinates |
-|------|----------|----|----|
-| Left | Thermal Engineering Lab II | thermal_lab | (30, 20) |
-| Left | Machine Tools Lab II | machine_tools_lab | (30, 50) |
-| Left | Mech Faculty Room | mech_faculty | (30, 80) |
-| Center | Lecture Hall A | lecture_a | (80, 20) |
-| Center | Lecture Hall B | lecture_b | (80, 50) |
-| Right | Lecture Hall C | lecture_c | (150, 20) |
-| Right | Lecture Hall D | lecture_d | (150, 50) |
-| Common | Faculty Center | faculty_center | (55, 70) |
-| Common | Faculty Room | faculty_room | (150, 110) |
-| Bottom | Mech HOD | mech_hod | (25, 140) |
-| Bottom | AI HOD | ai_hod | (85, 140) |
-| Stairs | Left Stairs | left_stairs | (20, 100) |
-| Stairs | Right Stairs | right_stairs | (80, 100) |
-| Stairs | Stairs (Right Side) | stairs_right_side | (160, 80) |
-| Entry | Main Entrance | main_entrance | (0, 50) |
-| Transit | Main Hall | main_hall | (15, 70) |
-| Transit | Right Hall | right_hall | (130, 70) |
+Emergency route currently computes one Dijkstra run per exit candidate, then picks minimum distance.
+This is correct and safe for the current graph size.
+Future optimization can run one single-source Dijkstra and compare all exits from one pass.
 
-**Connections (edges with distances):**
-- 17 corridors connecting locations
-- Distance ranges: 20m to 80m
-- Total coverage: ~1000 sq meters
+## Indoor Map Model
 
----
+The building is represented as a weighted, bidirectional graph.
 
-## QR Code Localization
+- Node count: 19
+- Undirected edge count: 29
+- Exit nodes: left_stairs, right_stairs, stairs_right_side
 
-### QR Code Format
-```json
-{
-  "id": "location_id",
-  "name": "Location Display Name",
-  "x": 30,
-  "y": 20,
-  "isExit": false
-}
-```
+Node metadata includes:
 
-### Strategic Placement (Recommended)
-Place QR codes **only** at:
-1. **Main Entrance** - Initial localization
-2. **Junction Points** - Stairs (2-3 codes)
-3. **Key Hubs** - Faculty Center
+- id
+- name
+- x, y coordinates
+- isExit flag
 
-**Total QR codes needed: 5-8**
+Edge metadata includes:
 
-### Similar to ARIndoorNav
-- ARIndoorNav uses OCR to detect room name plates
-- We use QR codes for location data
-- Same purpose: Establish initial pose
+- from
+- to
+- distance (meters, currently estimated unless physically measured)
 
----
+## Navigation Runtime Flow
 
-## Pathfinding Algorithms
+### Phase 1: Initial Localization
 
-### A* Algorithm (Used by default)
-- **Heuristic**: Euclidean distance
-- **Speed**: Fast
-- **Accuracy**: Optimal paths
-- **Use**: Real-time navigation
+- Navigate page opens ARVisualization.
+- MindAR image-target scanning starts.
+- On marker detection, mapped location is resolved from graph and set as current location.
 
-### Dijkstra's Algorithm
-- **Heuristic**: None (guaranteed shortest)
-- **Speed**: Slower
-- **Accuracy**: Always optimal
-- **Use**: Fallback/verification
+### Phase 2: Destination Selection
 
-**Graph Implementation:**
-```
-Graph contains:
-- 17 nodes (locations)
-- ~34 edges (bidirectional corridors)
-- Distances in meters
-- No diagonal shortcuts
-```
+- User selects target room.
+- Route is computed via getRoute.
+- System enters AR guidance mode.
 
----
+### Phase 3: AR Guidance
 
-## AR Visualization Techniques
+- Camera feed is shown with canvas overlay.
+- Arrow and floor guidance are rendered relative to next waypoint.
+- Device orientation contributes heading updates.
+- Pedometer navigator estimates progress between waypoints.
 
-### 1. Line Guidance (Like ARIndoorNav)
-```
-✓ Green continuous line from current → destination
-✓ Animated dots along path (walking guide)
-✓ Arrow pointing to destination
-```
+### Phase 4: Emergency Override
 
-### 2. Compass-Based Direction
-```
-✓ Cardinal directions (N, S, E, W)
-✓ Animated arrow showing heading
-✓ Distance indicator
-✓ Current location display
-```
+- User taps emergency action (or global trigger enabled).
+- getEvacuationRoute computes nearest-exit route using Dijkstra.
+- UI switches to emergency styling and evacuation guidance.
 
-### 3. HUD Elements
-```
-✓ Compass indicator (top-left)
-✓ Camera status (top-right)
-✓ Distance remaining (side)
-✓ Destination info (bottom)
-```
+## Marker and Asset Dependencies
 
----
+Active scanning path expects MindAR target file at:
 
-## User Journey
+- public/markers/targets.mind
 
-```
-SCREEN 1: QR SCANNER
-┌──────────────────────────┐
-│  Point at entrance QR    │
-│  Code detected ✓         │
-│  Location: Main Entrance │
-└──────────────────────────┘
-           ↓
-SCREEN 2: DESTINATION SELECTION
-┌──────────────────────────┐
-│ ← Current: Main Entrance │
-│                          │
-│ [Select Destination ▼]   │
-│  • Lecture Hall A        │
-│  • Faculty Center        │
-│  • Mech HOD              │
-└──────────────────────────┘
-           ↓
-SCREEN 3: AR NAVIGATION
-┌──────────────────────────┐
-│  📷 CAMERA FEED          │
-│                          │
-│     ↗ Arrow overlay      │
-│    N↑ Compass            │
-│     Lecture Hall A       │
-│     Follow arrow →       │
-│     Distance: 150m       │
-└──────────────────────────┘
-       +
-┌──────────────────────────┐
-│  FLOOR PLAN (Left side)  │
-│  ╔══════════════════╗    │
-│  ║●Current  ●Target║    │
-│  ║═════════════════ ║    │
-│  ║ → Route path     ║    │
-│  ╚══════════════════╝    │
-└──────────────────────────┘
-           ↓
-SCREEN 4: EMERGENCY MODE (on demand)
-┌──────────────────────────┐
-│  🚨 EMERGENCY EXIT        │
-│  Evacuate to: Main Exit  │
-│  Distance: 85m           │
-│  Follow red path →       │
-└──────────────────────────┘
-```
+If missing, initial marker localization cannot complete as designed.
 
----
+To generate:
 
-## File Structure
+1. Prepare marker images in fixed order matching MARKER_TARGETS in src/components/ARVisualization.js.
+2. Compile with MindAR image target compiler.
+3. Place output at public/markers/targets.mind.
 
-```
+Additional AR page:
+
+- public/ar.html provides a marker-based AR.js overlay view using a Hiro marker.
+
+## Implemented Safety Features
+
+- Emergency toggle from global navbar
+- Nearest-exit route calculation
+- Emergency visual state in AR and HUD
+- Alarm asset available at public/sounds/alarm.mp3
+
+## Project Structure (Relevant)
+
+```text
 src/
-├── ARCHITECTURE.js              ← This file
-├── data/
-│   └── indoorMap.js            ← Building structure (Sri Abhinava Block)
-├── logic/
-│   ├── graph.js                ← Graph data structure
-│   ├── algorithms.js           ← A* & Dijkstra
-│   ├── pathfinding.js          ← Route calculation API
-│   └── localization.js         ← QR parsing (NEW)
-├── components/
-│   ├── QRLocalization.js       ← QR scanner
-│   ├── QRLocalization.css
-│   ├── NavigationView.js       ← Route selector
-│   ├── NavigationView.css
-│   ├── ARVisualization.js      ← AR overlay + camera
-│   ├── ARVisualization.css
-│   ├── FloorPlan.js            ← 2D map with line guidance
-│   └── FloorPlan.css
-├── App.js                      ← Main controller
-├── App.css
-├── index.js
-└── index.css
+  App.js
+  data/
+    indoorMap.js
+  logic/
+    graph.js
+    algorithms.js
+    pathfinding.js
+    localization.js
+    pedometerNav.js
+  components/
+    ARVisualization.js
+    ARVisualizationWebXR.js
+    ARThreeScene.js
+    ARThreeSceneWebXR.js
+    QRLocalization.js
+    FloorPlan.js
+    NavigationView.js
+  pages/
+    HomePage.js
+    NavigatePage.js
+    MapPage.js
+    GuidePage.js
+    AboutPage.js
+public/
+  index.html
+  ar.html
+  sounds/alarm.mp3
 ```
 
----
+## Build and Verification
 
-## Future Enhancements
+### Commands
 
-### Short-term
-- [ ] Multi-floor support (add stairs connections)
-- [ ] Accessibility: Audio guidance
-- [ ] Alternative route suggestions
-- [ ] User preference storage
-
-### Medium-term
-- [ ] Three.js 3D visualization
-- [ ] Indoor positioning (WiFi/BLE fallback)
-- [ ] Real-time crowd density
-- [ ] Mobile app (Capacitor deployment)
-
-### Long-term
-- [ ] Machine learning for user behavior
-- [ ] Integration with building systems (HVAC, doors)
-- [ ] Multiplayer/shared navigation
-- [ ] Advanced gesture controls
-
----
-
-## Configuration & Customization
-
-### To Update Floor Plan:
-Edit `src/data/indoorMap.js`:
-```javascript
-const locations = [
-  { id: 'room_id', name: 'Room Name', x: 30, y: 20, isExit: false }
-];
+```bash
+npm install
+npm start
+npm run build
 ```
 
-### To Add New Location:
-```javascript
-addLocation('new_room', 'New Room Name', 100, 100);
-addConnection('existing_location', 'new_room', 45); // distance in meters
-```
+### Current Verification Status
 
-### To Change AR Colors:
-Edit component CSS files (search for `#00ff00` and replace)
+- Build compiles successfully.
+- Latest lint warnings related to CameraTest and ARVisualization dependencies were addressed.
 
----
+## Known Gaps and Clarifications
 
-## Performance Notes
+- No backend API service in current repository.
+- Main active localization path is marker-based MindAR in ARVisualization.
+- QRLocalization exists as a legacy or alternate OCR-like component and is not the default active flow.
+- Some WebXR/Three.js files are experimental and not the default path in App.js.
 
-- **A* calculation**: < 50ms for 17-node graph
-- **Canvas rendering**: 60 FPS maintained
-- **Camera feed**: 30-60 FPS (device-dependent)
-- **Memory footprint**: ~15MB (excluding camera feed)
+## Extension Recommendations
 
----
+1. Add single-pass evacuation optimization (single-source Dijkstra).
+2. Replace estimated corridor distances with measured values.
+3. Add test coverage for routing correctness and emergency exit selection.
+4. Add runtime fallback if targets.mind is absent (for example OCR fallback prompt).
+5. Add analytics for average evacuation path length and recalculation count.
 
-## Testing Checklist
+## Version
 
-- [ ] QR scanning works for all 5-8 locations
-- [ ] Pathfinding calculates routes correctly
-- [ ] AR visualization displays on camera feed
-- [ ] Floor plan updates with destination
-- [ ] Emergency evacuation shows nearest exit
-- [ ] Line guidance appears on floor plan
-- [ ] UI responsive on mobile devices
-
----
-
-## References
-
-- **ARIndoorNav**: https://github.com/Oscheibe/ARIndoorNav
-- **A* Algorithm**: https://en.wikipedia.org/wiki/A*_search_algorithm
-- **React**: https://react.dev
-- **Capacitor**: https://capacitorjs.com
-
----
-
-**Version**: 1.0  
-**Last Updated**: February 27, 2026  
-**Building**: Sri Abhinava Vidyatirtha Block  
-**Status**: ✅ Fully Functional
+- Document version: 2.0
+- Last updated: April 21, 2026
+- Status: Active prototype, frontend complete with marker asset setup pending
