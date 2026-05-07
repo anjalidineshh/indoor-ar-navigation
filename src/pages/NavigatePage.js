@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ARVisualization from '../components/ARVisualization';
+import EmergencyHUD from '../components/EmergencyHUD';
+import EmergencyEvacuationMap from '../components/EmergencyEvacuationMap';
 import { getRoute, getEvacuationRoute } from '../logic/pathfinding';
 import { getLocationNames, getLocationById } from '../data/indoorMap';
 
@@ -19,6 +21,8 @@ function NavigatePage({
   const [locations, setLocations] = useState([]);
   const [route, setRoute] = useState(null);
   const [isEmergency, setIsEmergency] = useState(false);
+  const [showEmergencyHUD, setShowEmergencyHUD] = useState(false);
+  const [showEvacMap, setShowEvacMap] = useState(false);
   // waypointIndex = index in route.path of the NEXT room to head toward
   // 0 = current location, 1 = first stop, path.length-1 = destination
   const [waypointIndex, setWaypointIndex] = useState(1);
@@ -33,9 +37,10 @@ function NavigatePage({
   useEffect(() => { setIsEmergency(globalEmergency || false); }, [globalEmergency]);
   useEffect(() => { setLocations(getLocationNames()); }, []);
 
-  // When emergency triggers from global, jump to AR mode
+  // When emergency triggers from global, jump to AR mode and show HUD
   useEffect(() => {
     if (globalEmergency && phase !== PHASE.AR) setPhase(PHASE.AR);
+    if (globalEmergency) setShowEmergencyHUD(true);
   }, [globalEmergency, phase]);
 
   // Advance from scanning → destination once location is found
@@ -87,12 +92,15 @@ function NavigatePage({
   const handleEmergency = () => {
     if (setGlobalEmergency) setGlobalEmergency(true);
     setIsEmergency(true);
+    setShowEmergencyHUD(true);
     if (phase !== PHASE.AR) setPhase(PHASE.AR);
   };
 
   const handleCancelEmergency = () => {
     if (setGlobalEmergency) setGlobalEmergency(false);
     setIsEmergency(false);
+    setShowEmergencyHUD(false);
+    setShowEvacMap(false);
     if (currentLocation && destination) setRoute(getRoute(currentLocation.id, destination.id));
     else setRoute(null);
   };
@@ -422,8 +430,8 @@ function NavigatePage({
         {/* Action buttons */}
         <div style={{ display: 'flex', gap: '0.65rem' }}>
           {isEmergency ? (
-            <button className="btn btn-secondary" onClick={handleCancelEmergency} style={{ flex: 1 }}>
-              Cancel Emergency
+            <button className="btn btn-secondary" onClick={() => setShowEmergencyHUD(true)} style={{ flex: 1 }}>
+              🚨 Emergency Guide
             </button>
           ) : (
             <button className="btn btn-danger" onClick={handleEmergency} style={{ flex: 1, fontSize: '0.85rem' }}>
@@ -459,6 +467,44 @@ function NavigatePage({
           </button>
         </div>
       </div>
+      {/* ── Emergency HUD overlay ── */}
+      {isEmergency && showEmergencyHUD && (
+        <EmergencyHUD
+          evacuationRoute={route}
+          currentLocation={currentLocation}
+          waypointIndex={waypointIndex}
+          onShowMap={() => { setShowEmergencyHUD(false); setShowEvacMap(true); }}
+          onCancelEmergency={handleCancelEmergency}
+          onAdvanceWaypoint={() => setWaypointIndex(v => Math.min(v + 1, (route?.path?.length ?? 1) - 1))}
+        />
+      )}
+
+      {/* ── Evacuation map overlay ── */}
+      {isEmergency && showEvacMap && (
+        <EmergencyEvacuationMap
+          currentLocation={currentLocation}
+          evacuationRoute={route}
+          onClose={() => { setShowEvacMap(false); setShowEmergencyHUD(true); }}
+        />
+      )}
+
+      {/* ── Emergency mode: quick-open HUD button (when map is hidden) ── */}
+      {isEmergency && !showEmergencyHUD && !showEvacMap && (
+        <button
+          onClick={() => setShowEmergencyHUD(true)}
+          style={{
+            position: 'absolute', top: '4.5rem', left: '50%',
+            transform: 'translateX(-50%)', zIndex: 50,
+            background: '#ef4444', color: '#fff',
+            border: 'none', borderRadius: '99px',
+            padding: '0.6rem 1.4rem', cursor: 'pointer',
+            fontSize: '0.85rem', fontWeight: '700',
+            boxShadow: '0 4px 20px rgba(239,68,68,0.5)',
+          }}
+        >
+          🚨 Open Emergency Guide
+        </button>
+      )}
     </div>
   );
 }
